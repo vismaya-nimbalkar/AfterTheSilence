@@ -8,8 +8,8 @@ module.exports = {
     removeConsole: process.env.NODE_ENV === 'production',
   },
 
-  // 👇 THIS is the important part
-  turbopack: false,
+  // 👇 REQUIRED to silence Turbopack + Webpack conflict
+  turbopack: {},
 
   webpack: (config) => {
     config.plugins.push(new VeliteWebpackPlugin());
