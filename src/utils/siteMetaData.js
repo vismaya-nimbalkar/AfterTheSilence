@@ -1,15 +1,15 @@
 // please update required information
 const siteMetadata = {
-    title: 'Nimbalkar Law | Something Different',
-    author: 'Shlok Nimbalkar',
-    headerTitle: 'Nimbalkar',
-    description: 'A blog for nuance, integrity and clarity',
+    title: 'After The Silence | A Queer Blog',
+    author: 'Vismaya Nimbalkar',
+    headerTitle: 'After The Silence',
+    description: 'A blog for Queer Folk',
     language: 'en-us',
     theme: 'system', // system, dark or light
-    siteUrl: 'https://nimbalkar.in', // your website URL
+    siteUrl: 'https://afterthesilence.org', // your website URL
     siteLogo: '/logo.png',
     socialBanner: '/social-banner.png', // add social banner in the public folder
-    email: 'contact@nimbalkar.in', 
+    email: 'vismaya@afterthesilence.org', 
     linkedin: 'https://www.linkedin.com/in/shlokb2/',
     locale: 'en-US',
   }
