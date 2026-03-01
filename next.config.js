@@ -1,37 +1,17 @@
 /** @type {import('next').NextConfig} */
 module.exports = {
+  // We keep this to avoid the conflict warnings you saw earlier
+  turbopack: {},
+
+  // We keep this for clean logs
+  compiler: {
+    removeConsole: process.env.NODE_ENV === 'production',
+  },
+  
   experimental: {
     serverActions: {},
   },
 
-  compiler: {
-    removeConsole: process.env.NODE_ENV === 'production',
-  },
-
-  // 👇 REQUIRED to silence Turbopack + Webpack conflict
-  turbopack: {},
-
-  webpack: (config) => {
-    config.plugins.push(new VeliteWebpackPlugin());
-    return config;
-  },
+  // We REMOVED the webpack plugin block here because
+  // we are now handling Velite in package.json
 };
-
-class VeliteWebpackPlugin {
-  static started = false;
-
-  apply(compiler) {
-    compiler.hooks.beforeCompile.tapPromise(
-      'VeliteWebpackPlugin',
-      async () => {
-        if (VeliteWebpackPlugin.started) return;
-        VeliteWebpackPlugin.started = true;
-
-        const dev = compiler.options.mode === 'development';
-        const { build } = await import('velite');
-
-        await build({ watch: dev, clean: !dev });
-      }
-    );
-  }
-}
