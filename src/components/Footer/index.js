@@ -21,12 +21,6 @@ const Footer = () => {
         <span className="text-center">
           &copy;2025 Vismaya Nimbalkar. All rights reserved.
         </span>
-        <Link
-          href="/sitemap.xml"
-          className="text-center underline my-4 md:my-0"
-        >
-          sitemap.xml
-        </Link>
       </div>
     </footer>
   );
