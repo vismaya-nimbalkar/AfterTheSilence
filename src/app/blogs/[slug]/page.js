@@ -3,9 +3,11 @@ import RenderMdx from "@/src/components/Blog/RenderMdx";
 import Tag from "@/src/components/Elements/Tag";
 import siteMetadata from "@/src/utils/siteMetaData";
 import { blogs } from '@/.velite/generated'
-import { slug as slugify } from "github-slugger";
 import Image from "next/image";
 import { notFound } from "next/navigation";
+
+// Clean, stateless helper function to replace github-slugger
+const generateSlug = (tag) => tag.toLowerCase().trim().replace(/\s+/g, '-');
 
 function TableOfContentsItem({ item, level = "two" }) {
   return (
@@ -85,7 +87,7 @@ export default async function BlogPage({ params }) {
           <div className="w-full z-10 flex flex-col items-center justify-center absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
             <Tag
               name={blog.tags[0]}
-              link={`/categories/${slugify(blog.tags[0])}`}
+              link={`/categories/${generateSlug(blog.tags[0])}`}
               className="px-6 text-sm py-2"
             />
             <h1

@@ -1,9 +1,9 @@
 import { blogs as allBlogs } from "@/.velite/generated";
 import BlogLayoutThree from "@/src/components/Blog/BlogLayoutThree";
 import Categories from "@/src/components/Blog/Categories";
-import Slugger from "github-slugger"; // Import the class
 
-const slugger = new Slugger(); // Instantiate the Slugger class
+// Clean, stateless helper function to replace github-slugger
+const generateSlug = (tag) => tag.toLowerCase().trim().replace(/\s+/g, '-');
 
 export async function generateStaticParams() {
   const categories = [];
@@ -12,7 +12,7 @@ export async function generateStaticParams() {
   allBlogs.map((blog) => {
     if (blog.isPublished) {
       blog.tags.map((tag) => {
-        let slugified = slugger.slug(tag); // Use the instance to generate the slug
+        let slugified = generateSlug(tag); // Use the stateless helper
         if (!categories.includes(slugified)) {
           categories.push(slugified);
           paths.push({ slug: slugified });
@@ -37,21 +37,34 @@ const CategoryPage = async ({ params }) => {
   const { slug } = await params;  // Await params before accessing slug
   const slugified = slug || 'all';  // Safe access
 
-  const allCategories = ["all"];
+  const otherCategories = [];
+  
+  // Gather all categories except "all"
   allBlogs.forEach(blog => {
     blog.tags.forEach(tag => {
-      const slugifiedTag = slugger.slug(tag);  // Use the instance to generate the slug
-      if (!allCategories.includes(slugifiedTag)) {
-        allCategories.push(slugifiedTag);
+      const slugifiedTag = generateSlug(tag);  // Use the stateless helper
+      if (slugifiedTag !== "all" && !otherCategories.includes(slugifiedTag)) {
+        otherCategories.push(slugifiedTag);
       }
     });
   });
 
-  allCategories.sort();
+  // Sort the other categories alphabetically
+  otherCategories.sort();
 
+  // Force "all" to be the very first item, followed by the sorted rest
+  const allCategories = ["all", ...otherCategories];
+
+  // Filter the blogs by category, THEN sort them by date (newest to oldest)
   const blogs = allBlogs.filter(blog => {
     if (slugified === "all") return true;
-    return blog.tags.some(tag => slugger.slug(tag) === slugified);  // Use the instance to generate the slug
+    return blog.tags.some(tag => generateSlug(tag) === slugified); 
+  }).sort((a, b) => {
+    // We create Date objects from your Velite date field to compare them
+    // It checks for 'date', 'publishedAt', or 'createdAt' fields
+    const dateA = new Date(a.date || a.publishedAt || a.createdAt);
+    const dateB = new Date(b.date || b.publishedAt || b.createdAt);
+    return dateB.getTime() - dateA.getTime(); 
   });
 
   return (
