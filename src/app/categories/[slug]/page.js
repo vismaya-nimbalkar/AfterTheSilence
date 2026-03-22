@@ -55,7 +55,7 @@ const CategoryPage = async ({ params }) => {
   // Force "all" to be the very first item, followed by the sorted rest
   const allCategories = ["all", ...otherCategories];
 
-  // Filter the blogs by category, THEN sort them by date (newest to oldest)
+  // Filter the blogs by category, THEN sort them by date (oldest to newest)
   const blogs = allBlogs.filter(blog => {
     if (slugified === "all") return true;
     return blog.tags.some(tag => generateSlug(tag) === slugified); 
@@ -64,7 +64,7 @@ const CategoryPage = async ({ params }) => {
     // It checks for 'date', 'publishedAt', or 'createdAt' fields
     const dateA = new Date(a.date || a.publishedAt || a.createdAt);
     const dateB = new Date(b.date || b.publishedAt || b.createdAt);
-    return dateB.getTime() - dateA.getTime(); 
+    return dateA.getTime() - dateB.getTime(); // Updated to sort Oldest to Newest
   });
 
   return (
