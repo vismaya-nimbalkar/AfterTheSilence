@@ -11,7 +11,7 @@ export default function AdminSecurityPage() {
   const [supabase] = useState(() => createClient());
 
   // ============================================================
-  // AUTH / GENERAL
+  // AUTH
   // ============================================================
 
   const [loading, setLoading] = useState(true);
@@ -19,7 +19,7 @@ export default function AdminSecurityPage() {
   const [error, setError] = useState("");
 
   // ============================================================
-  // MFA
+  // MFA / TOTP
   // ============================================================
 
   const [mfaEnabled, setMfaEnabled] = useState(false);
@@ -43,6 +43,40 @@ export default function AdminSecurityPage() {
   const [passkeyMessage, setPasskeyMessage] = useState("");
 
   // ============================================================
+  // LOAD PASSKEYS
+  // ============================================================
+
+  const loadPasskeys = async () => {
+    try {
+      const {
+        data,
+        error: passkeyError,
+      } = await supabase.auth.passkey.list();
+
+      if (passkeyError) {
+        console.error(
+          "Could not load passkeys:",
+          passkeyError
+        );
+        return;
+      }
+
+      /*
+       * Supabase returns the passkey list directly.
+       * It is NOT { passkeys: [...] }.
+       */
+      setPasskeys(
+        Array.isArray(data) ? data : []
+      );
+    } catch (error) {
+      console.error(
+        "Could not load passkeys:",
+        error
+      );
+    }
+  };
+
+  // ============================================================
   // INITIAL AUTH CHECK
   // ============================================================
 
@@ -54,6 +88,10 @@ export default function AdminSecurityPage() {
       setError("");
 
       try {
+        // --------------------------------------------------------
+        // CHECK USER
+        // --------------------------------------------------------
+
         const {
           data: { user },
           error: userError,
@@ -63,20 +101,14 @@ export default function AdminSecurityPage() {
           throw userError;
         }
 
-        // --------------------------------------------------------
-        // NOT LOGGED IN
-        // --------------------------------------------------------
-
         if (!user) {
           router.replace("/admin/login");
           return;
         }
 
-        // --------------------------------------------------------
-        // USER IS AUTHENTICATED
-        // --------------------------------------------------------
-
-        if (!mounted) return;
+        if (!mounted) {
+          return;
+        }
 
         setAuthorized(true);
 
@@ -95,12 +127,15 @@ export default function AdminSecurityPage() {
 
         const verifiedTotp =
           factors?.totp?.filter(
-            (factor) => factor.status === "verified"
+            (factor) =>
+              factor.status === "verified"
           ) || [];
 
         if (verifiedTotp.length > 0) {
           setMfaEnabled(true);
-          setMfaFactorId(verifiedTotp[0].id);
+          setMfaFactorId(
+            verifiedTotp[0].id
+          );
         } else {
           setMfaEnabled(false);
           setMfaFactorId("");
@@ -110,23 +145,8 @@ export default function AdminSecurityPage() {
         // LOAD PASSKEYS
         // --------------------------------------------------------
 
-        try {
-          const {
-            data: passkeyData,
-            error: passkeyError,
-          } = await supabase.auth.passkey.list();
+        await loadPasskeys();
 
-          if (!passkeyError) {
-            setPasskeys(
-              passkeyData?.passkeys || []
-            );
-          }
-        } catch (passkeyError) {
-          console.warn(
-            "Could not load passkeys:",
-            passkeyError
-          );
-        }
       } catch (error) {
         console.error(
           "Security page error:",
@@ -154,7 +174,7 @@ export default function AdminSecurityPage() {
   }, [router, supabase]);
 
   // ============================================================
-  // START MFA ENROLLMENT
+  // START MFA SETUP
   // ============================================================
 
   const startMFASetup = async () => {
@@ -163,7 +183,10 @@ export default function AdminSecurityPage() {
     setMfaLoading(true);
 
     try {
-      // Make absolutely sure the user is still logged in.
+      // --------------------------------------------------------
+      // MAKE SURE USER IS LOGGED IN
+      // --------------------------------------------------------
+
       const {
         data: { user },
       } = await supabase.auth.getUser();
@@ -174,27 +197,72 @@ export default function AdminSecurityPage() {
       }
 
       // --------------------------------------------------------
-      // REMOVE OLD UNVERIFIED FACTORS
+      // CHECK EXISTING MFA FACTORS
       // --------------------------------------------------------
 
       const {
         data: factors,
+        error: factorsError,
       } = await supabase.auth.mfa.listFactors();
 
-      const unverifiedFactors =
+      if (factorsError) {
+        throw factorsError;
+      }
+
+      const verifiedTotp =
+        factors?.totp?.filter(
+          (factor) =>
+            factor.status === "verified"
+        ) || [];
+
+      // --------------------------------------------------------
+      // ALREADY ENABLED
+      // --------------------------------------------------------
+
+      if (verifiedTotp.length > 0) {
+        setMfaEnabled(true);
+        setMfaFactorId(
+          verifiedTotp[0].id
+        );
+
+        setMfaMessage(
+          "Two-factor authentication is already enabled."
+        );
+
+        return;
+      }
+
+      // --------------------------------------------------------
+      // REMOVE ONLY OLD UNVERIFIED TOTP FACTORS
+      // --------------------------------------------------------
+      //
+      // This prevents abandoned enrollment attempts
+      // from interfering with a fresh setup.
+      //
+
+      const unverifiedTotp =
         factors?.totp?.filter(
           (factor) =>
             factor.status === "unverified"
         ) || [];
 
-      for (const factor of unverifiedFactors) {
-        await supabase.auth.mfa.unenroll({
+      for (const factor of unverifiedTotp) {
+        const {
+          error: unenrollError,
+        } = await supabase.auth.mfa.unenroll({
           factorId: factor.id,
         });
+
+        if (unenrollError) {
+          console.warn(
+            "Could not remove old unverified MFA factor:",
+            unenrollError
+          );
+        }
       }
 
       // --------------------------------------------------------
-      // ENROLL NEW TOTP
+      // CREATE NEW TOTP FACTOR
       // --------------------------------------------------------
 
       const {
@@ -202,11 +270,18 @@ export default function AdminSecurityPage() {
         error,
       } = await supabase.auth.mfa.enroll({
         factorType: "totp",
-        friendlyName: "After The Silence Admin",
+        friendlyName:
+          "After The Silence Admin",
       });
 
       if (error) {
         throw error;
+      }
+
+      if (!data?.id) {
+        throw new Error(
+          "Supabase did not return an MFA factor ID."
+        );
       }
 
       setMfaFactorId(data.id);
@@ -219,7 +294,10 @@ export default function AdminSecurityPage() {
         data.totp?.secret || ""
       );
 
+      setMfaCode("");
+
       setShowMFASetup(true);
+
     } catch (error) {
       console.error(
         "MFA enrollment error:",
@@ -246,7 +324,9 @@ export default function AdminSecurityPage() {
     setMfaMessage("");
 
     if (!mfaFactorId) {
-      setError("No MFA factor was found.");
+      setError(
+        "No MFA factor was found."
+      );
       return;
     }
 
@@ -260,6 +340,10 @@ export default function AdminSecurityPage() {
     setMfaLoading(true);
 
     try {
+      // --------------------------------------------------------
+      // CREATE CHALLENGE
+      // --------------------------------------------------------
+
       const {
         data: challenge,
         error: challengeError,
@@ -270,6 +354,16 @@ export default function AdminSecurityPage() {
       if (challengeError) {
         throw challengeError;
       }
+
+      if (!challenge?.id) {
+        throw new Error(
+          "Supabase did not return an MFA challenge."
+        );
+      }
+
+      // --------------------------------------------------------
+      // VERIFY CODE
+      // --------------------------------------------------------
 
       const {
         error: verifyError,
@@ -283,6 +377,10 @@ export default function AdminSecurityPage() {
         throw verifyError;
       }
 
+      // --------------------------------------------------------
+      // SUCCESS
+      // --------------------------------------------------------
+
       setMfaEnabled(true);
       setShowMFASetup(false);
 
@@ -293,6 +391,7 @@ export default function AdminSecurityPage() {
       setMfaMessage(
         "Two-factor authentication is now enabled."
       );
+
     } catch (error) {
       console.error(
         "MFA verification error:",
@@ -305,9 +404,37 @@ export default function AdminSecurityPage() {
       );
 
       setMfaCode("");
+
     } finally {
       setMfaLoading(false);
     }
+  };
+
+  // ============================================================
+  // CANCEL MFA SETUP
+  // ============================================================
+
+  const cancelMFASetup = async () => {
+    if (mfaFactorId) {
+      try {
+        await supabase.auth.mfa.unenroll({
+          factorId: mfaFactorId,
+        });
+      } catch (error) {
+        console.warn(
+          "Could not cancel MFA enrollment:",
+          error
+        );
+      }
+    }
+
+    setShowMFASetup(false);
+    setMfaFactorId("");
+    setQrCode("");
+    setSecret("");
+    setMfaCode("");
+    setMfaMessage("");
+    setError("");
   };
 
   // ============================================================
@@ -357,6 +484,7 @@ export default function AdminSecurityPage() {
       setMfaMessage(
         "Two-factor authentication has been disabled."
       );
+
     } catch (error) {
       console.error(
         "Disable MFA error:",
@@ -367,6 +495,7 @@ export default function AdminSecurityPage() {
         error?.message ||
           "Could not disable two-factor authentication."
       );
+
     } finally {
       setMfaLoading(false);
     }
@@ -382,6 +511,10 @@ export default function AdminSecurityPage() {
     setPasskeyLoading(true);
 
     try {
+      // --------------------------------------------------------
+      // CHECK LOGIN
+      // --------------------------------------------------------
+
       const {
         data: { user },
       } = await supabase.auth.getUser();
@@ -390,6 +523,10 @@ export default function AdminSecurityPage() {
         router.replace("/admin/login");
         return;
       }
+
+      // --------------------------------------------------------
+      // REGISTER PASSKEY
+      // --------------------------------------------------------
 
       const {
         data,
@@ -400,25 +537,21 @@ export default function AdminSecurityPage() {
         throw error;
       }
 
+      console.log(
+        "Passkey registration successful:",
+        data
+      );
+
       setPasskeyMessage(
         "Passkey added successfully."
       );
 
-      // Reload passkeys
-      try {
-        const {
-          data: passkeyData,
-        } = await supabase.auth.passkey.list();
+      // --------------------------------------------------------
+      // REFRESH LIST
+      // --------------------------------------------------------
 
-        setPasskeys(
-          passkeyData?.passkeys || []
-        );
-      } catch (error) {
-        console.warn(
-          "Could not refresh passkeys:",
-          error
-        );
-      }
+      await loadPasskeys();
+
     } catch (error) {
       console.error(
         "Passkey registration error:",
@@ -429,6 +562,7 @@ export default function AdminSecurityPage() {
         error?.message ||
           "Could not register your passkey."
       );
+
     } finally {
       setPasskeyLoading(false);
     }
@@ -439,6 +573,10 @@ export default function AdminSecurityPage() {
   // ============================================================
 
   const deletePasskey = async (passkeyId) => {
+    if (!passkeyId) {
+      return;
+    }
+
     const confirmed = window.confirm(
       "Are you sure you want to remove this passkey?"
     );
@@ -471,16 +609,16 @@ export default function AdminSecurityPage() {
         throw error;
       }
 
-      setPasskeys((current) =>
-        current.filter(
-          (passkey) =>
-            passkey.id !== passkeyId
-        )
-      );
+      // --------------------------------------------------------
+      // REFRESH FROM SUPABASE
+      // --------------------------------------------------------
+
+      await loadPasskeys();
 
       setPasskeyMessage(
         "Passkey removed."
       );
+
     } catch (error) {
       console.error(
         "Passkey deletion error:",
@@ -491,6 +629,7 @@ export default function AdminSecurityPage() {
         error?.message ||
           "Could not remove passkey."
       );
+
     } finally {
       setPasskeyLoading(false);
     }
@@ -610,7 +749,7 @@ export default function AdminSecurityPage() {
         )}
 
         {/* ======================================================
-            TWO-FACTOR AUTHENTICATION
+            TWO FACTOR AUTHENTICATION
         ======================================================= */}
 
         <section
@@ -659,7 +798,9 @@ export default function AdminSecurityPage() {
 
             </div>
 
-            {/* MFA ENABLED */}
+            {/* ==================================================
+                MFA ENABLED
+            =================================================== */}
 
             {mfaEnabled && (
               <div
@@ -677,8 +818,8 @@ export default function AdminSecurityPage() {
                 </p>
 
                 <p className="mt-1 text-sm opacity-60">
-                  Your account requires additional
-                  verification after password login.
+                  Your account has a verified
+                  authenticator factor.
                 </p>
 
                 <button
@@ -708,33 +849,38 @@ export default function AdminSecurityPage() {
               </div>
             )}
 
-            {/* MFA NOT ENABLED */}
+            {/* ==================================================
+                MFA NOT ENABLED
+            =================================================== */}
 
-            {!mfaEnabled && !showMFASetup && (
-              <button
-                type="button"
-                onClick={startMFASetup}
-                disabled={mfaLoading}
-                className="
-                  w-full
-                  rounded-xl
-                  bg-dark
-                  px-5
-                  py-4
-                  font-medium
-                  text-light
-                  transition-opacity
-                  hover:opacity-80
-                  disabled:opacity-50
-                "
-              >
-                {mfaLoading
-                  ? "Preparing..."
-                  : "Set up authenticator app"}
-              </button>
-            )}
+            {!mfaEnabled &&
+              !showMFASetup && (
+                <button
+                  type="button"
+                  onClick={startMFASetup}
+                  disabled={mfaLoading}
+                  className="
+                    w-full
+                    rounded-xl
+                    bg-dark
+                    px-5
+                    py-4
+                    font-medium
+                    text-light
+                    transition-opacity
+                    hover:opacity-80
+                    disabled:opacity-50
+                  "
+                >
+                  {mfaLoading
+                    ? "Preparing..."
+                    : "Set up authenticator app"}
+                </button>
+              )}
 
-            {/* MFA SETUP */}
+            {/* ==================================================
+                MFA SETUP
+            =================================================== */}
 
             {showMFASetup && (
               <div
@@ -753,11 +899,7 @@ export default function AdminSecurityPage() {
 
                 <p className="mt-2 text-sm leading-6 opacity-60">
                   Scan this QR code using
-                  Google Authenticator,
-                  Microsoft Authenticator,
-                  1Password, Apple Passwords,
-                  or another compatible
-                  authenticator app.
+                  your authenticator app.
                 </p>
 
                 {/* QR CODE */}
@@ -823,7 +965,7 @@ export default function AdminSecurityPage() {
                   </details>
                 )}
 
-                {/* VERIFY */}
+                {/* VERIFY FORM */}
 
                 <form
                   onSubmit={verifyMFA}
@@ -905,6 +1047,30 @@ export default function AdminSecurityPage() {
                   </button>
 
                 </form>
+
+                {/* CANCEL */}
+
+                <button
+                  type="button"
+                  onClick={cancelMFASetup}
+                  disabled={mfaLoading}
+                  className="
+                    mt-3
+                    w-full
+                    rounded-lg
+                    border
+                    border-dark/20
+                    px-4
+                    py-3
+                    text-sm
+                    font-medium
+                    transition-colors
+                    hover:bg-dark/5
+                    disabled:opacity-50
+                  "
+                >
+                  Cancel setup
+                </button>
 
               </div>
             )}
@@ -999,7 +1165,8 @@ export default function AdminSecurityPage() {
                     <div>
 
                       <p className="font-medium">
-                        {passkey.name || "Passkey"}
+                        {passkey.friendly_name ||
+                          "Passkey"}
                       </p>
 
                       {passkey.created_at && (
@@ -1007,6 +1174,15 @@ export default function AdminSecurityPage() {
                           Added{" "}
                           {new Date(
                             passkey.created_at
+                          ).toLocaleDateString()}
+                        </p>
+                      )}
+
+                      {passkey.last_used_at && (
+                        <p className="mt-1 text-xs opacity-50">
+                          Last used{" "}
+                          {new Date(
+                            passkey.last_used_at
                           ).toLocaleDateString()}
                         </p>
                       )}
@@ -1046,6 +1222,8 @@ export default function AdminSecurityPage() {
             </div>
           )}
 
+          {/* NO PASSKEYS */}
+
           {passkeys.length === 0 && (
             <p className="mt-6 text-sm opacity-50">
               No passkeys registered yet.
@@ -1058,18 +1236,26 @@ export default function AdminSecurityPage() {
             SECURITY NOTE
         ======================================================= */}
 
-        <div className="mt-8 rounded-xl border border-dark/10 p-5">
+        <div
+          className="
+            mt-8
+            rounded-xl
+            border
+            border-dark/10
+            p-5
+          "
+        >
 
           <p className="text-sm font-medium">
             🔒 Security recommendation
           </p>
 
           <p className="mt-2 text-sm leading-6 opacity-60">
-            Register at least one passkey and
-            keep an authenticator-app method
-            available as a backup. Never share
-            your authenticator secret or recovery
-            credentials.
+            Keep at least two authentication
+            methods available. A passkey and an
+            authenticator app provide useful
+            backup options if one becomes
+            unavailable.
           </p>
 
         </div>
