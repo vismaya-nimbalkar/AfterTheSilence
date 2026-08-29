@@ -17,8 +17,9 @@ export default async function AdminPage() {
     data: { user },
   } = await supabase.auth.getUser();
 
+  // Not logged in → show forbidden page
   if (!user) {
-    redirect("/admin/login");
+    redirect("/forbidden");
   }
 
   // ============================================================
@@ -74,6 +75,7 @@ export default async function AdminPage() {
         >
 
           <div>
+
             <p className="text-sm opacity-60">
               After The Silence
             </p>
@@ -85,11 +87,35 @@ export default async function AdminPage() {
             <p className="mt-2 text-sm opacity-60">
               Signed in as {user.email}
             </p>
+
           </div>
 
-          {/* Header actions */}
+
+          {/* ====================================================
+              HEADER ACTIONS
+          ===================================================== */}
 
           <div className="flex flex-col gap-3 sm:flex-row">
+
+            {/* Security */}
+
+            <Link
+              href="/admin/security"
+              className="
+                rounded-lg
+                border
+                border-dark
+                px-5
+                py-3
+                text-center
+                font-medium
+                transition-opacity
+                hover:opacity-70
+              "
+            >
+              🔐 Security
+            </Link>
+
 
             {/* Newsletter */}
 
@@ -110,6 +136,7 @@ export default async function AdminPage() {
               ✉ Newsletter
             </Link>
 
+
             {/* New Post */}
 
             <Link
@@ -128,6 +155,7 @@ export default async function AdminPage() {
             >
               + New Post
             </Link>
+
 
             {/* Logout */}
 
@@ -168,6 +196,7 @@ export default async function AdminPage() {
 
             </div>
 
+
             {/* Pending count */}
 
             <div
@@ -192,7 +221,9 @@ export default async function AdminPage() {
           </div>
 
 
-          {/* Comments database error */}
+          {/* ==================================================
+              COMMENTS DATABASE ERROR
+          =================================================== */}
 
           {commentsError && (
             <div
@@ -217,7 +248,9 @@ export default async function AdminPage() {
           )}
 
 
-          {/* Comment moderation */}
+          {/* ==================================================
+              COMMENT MODERATION
+          =================================================== */}
 
           {!commentsError && (
             <CommentModeration
@@ -261,7 +294,9 @@ export default async function AdminPage() {
           </div>
 
 
-          {/* Posts database error */}
+          {/* ==================================================
+              POSTS DATABASE ERROR
+          =================================================== */}
 
           {postsError && (
             <div
@@ -286,7 +321,9 @@ export default async function AdminPage() {
           )}
 
 
-          {/* No posts */}
+          {/* ==================================================
+              NO POSTS
+          =================================================== */}
 
           {!postsError &&
             (!posts || posts.length === 0) && (
@@ -329,7 +366,9 @@ export default async function AdminPage() {
             )}
 
 
-          {/* Post list */}
+          {/* ==================================================
+              POST LIST
+          =================================================== */}
 
           <div className="space-y-4">
 
@@ -356,7 +395,9 @@ export default async function AdminPage() {
                   "
                 >
 
-                  {/* Post information */}
+                  {/* ==================================================
+                      POST INFORMATION
+                  =================================================== */}
 
                   <div className="min-w-0">
 
@@ -407,7 +448,9 @@ export default async function AdminPage() {
                   </div>
 
 
-                  {/* Post actions */}
+                  {/* ==================================================
+                      POST ACTIONS
+                  =================================================== */}
 
                   <div
                     className="
