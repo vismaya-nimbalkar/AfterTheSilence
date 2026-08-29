@@ -1,17 +1,69 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+
+const DISCLAIMER_STORAGE_KEY = "afterTheSilenceDisclaimerAccepted";
 
 export default function DisclaimerGate({ children }) {
   const [accepted, setAccepted] = useState(false);
   const [checked, setChecked] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+
+  /*
+   * Check whether the disclaimer has already
+   * been accepted during this browser session.
+   */
+  useEffect(() => {
+    try {
+      const hasAccepted = sessionStorage.getItem(
+        DISCLAIMER_STORAGE_KEY
+      );
+
+      if (hasAccepted === "true") {
+        setAccepted(true);
+      }
+    } catch (error) {
+      console.error(
+        "Could not access sessionStorage:",
+        error
+      );
+    }
+
+    setLoaded(true);
+  }, []);
 
   const handleAccept = () => {
     if (!checked) return;
 
+    try {
+      sessionStorage.setItem(
+        DISCLAIMER_STORAGE_KEY,
+        "true"
+      );
+    } catch (error) {
+      console.error(
+        "Could not save disclaimer acceptance:",
+        error
+      );
+    }
+
     setAccepted(true);
   };
 
+  /*
+   * Don't render the gate until we've checked
+   * sessionStorage.
+   *
+   * This prevents the disclaimer from flashing
+   * briefly during page load for returning visitors.
+   */
+  if (!loaded) {
+    return null;
+  }
+
+  /*
+   * Disclaimer already accepted during this session.
+   */
   if (accepted) {
     return children;
   }
@@ -28,10 +80,12 @@ export default function DisclaimerGate({ children }) {
 
       {/* Full-screen disclaimer gate */}
       <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-white p-4 sm:p-6">
+
         <div className="flex h-full max-h-[900px] w-full max-w-5xl flex-col rounded-2xl border border-black/10 bg-white shadow-2xl">
-          
+
           {/* Header */}
           <div className="border-b border-black/10 px-6 py-6 sm:px-10">
+
             <h1 className="text-3xl font-bold tracking-tight text-black sm:text-4xl">
               DISCLAIMER
             </h1>
@@ -39,12 +93,14 @@ export default function DisclaimerGate({ children }) {
             <p className="mt-3 text-sm font-medium text-gray-500">
               Last updated December 25, 2025
             </p>
+
           </div>
 
           {/* Disclaimer content */}
           <div className="flex-1 overflow-y-auto px-6 py-6 sm:px-10 sm:py-8">
-            
+
             <section>
+
               <h2 className="mb-4 text-xl font-bold tracking-tight text-black sm:text-2xl">
                 WEBSITE DISCLAIMER
               </h2>
@@ -72,9 +128,11 @@ export default function DisclaimerGate({ children }) {
                 YOUR RELIANCE ON ANY INFORMATION ON THE SITE IS SOLELY AT YOUR
                 OWN RISK.
               </p>
+
             </section>
 
             <section className="mt-10">
+
               <h2 className="mb-4 text-xl font-bold tracking-tight text-black sm:text-2xl">
                 EXTERNAL LINKS DISCLAIMER
               </h2>
@@ -94,9 +152,11 @@ export default function DisclaimerGate({ children }) {
                 TRANSACTION BETWEEN YOU AND THIRD-PARTY PROVIDERS OF PRODUCTS
                 OR SERVICES.
               </p>
+
             </section>
 
             <section className="mt-10">
+
               <h2 className="mb-4 text-xl font-bold tracking-tight text-black sm:text-2xl">
                 PROFESSIONAL DISCLAIMER
               </h2>
@@ -112,18 +172,22 @@ export default function DisclaimerGate({ children }) {
                 OF ANY INFORMATION CONTAINED ON THE SITE IS SOLELY AT YOUR OWN
                 RISK.
               </p>
+
             </section>
 
           </div>
 
           {/* Consent area */}
           <div className="border-t border-black/10 bg-gray-50 px-6 py-6 sm:px-10">
-            
+
             <label className="flex cursor-pointer items-start gap-3">
+
               <input
                 type="checkbox"
                 checked={checked}
-                onChange={(e) => setChecked(e.target.checked)}
+                onChange={(e) =>
+                  setChecked(e.target.checked)
+                }
                 className="mt-1 h-5 w-5 shrink-0 cursor-pointer accent-black"
               />
 
@@ -131,19 +195,36 @@ export default function DisclaimerGate({ children }) {
                 I have read and understood this disclaimer and acknowledge
                 that I am accessing and using this website at my own risk.
               </span>
+
             </label>
 
             <button
               type="button"
               onClick={handleAccept}
               disabled={!checked}
-              className="mt-5 w-full rounded-xl bg-black px-6 py-4 text-sm font-semibold text-white transition-all hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-40"
+              className="
+                mt-5
+                w-full
+                rounded-xl
+                bg-black
+                px-6
+                py-4
+                text-sm
+                font-semibold
+                text-white
+                transition-all
+                hover:bg-gray-800
+                disabled:cursor-not-allowed
+                disabled:opacity-40
+              "
             >
               I Agree &amp; Continue
             </button>
 
           </div>
+
         </div>
+
       </div>
     </>
   );

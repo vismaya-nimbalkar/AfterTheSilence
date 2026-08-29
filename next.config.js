@@ -1,17 +1,15 @@
-/** @type {import('next').NextConfig} */
-module.exports = {
-  // We keep this to avoid the conflict warnings you saw earlier
-  turbopack: {},
-
-  // We keep this for clean logs
-  compiler: {
-    removeConsole: process.env.NODE_ENV === 'production',
+/** @type {import('next').NextMode} */
+const nextConfig = {
+  images: {
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'https://wfswmeuevhuwzntzcpid.supabase.co',
+        port: '',
+        pathname: '/storage/v1/object/public/**',
+      },
+    ],
   },
-  
-  experimental: {
-    serverActions: {},
-  },
-
-  // We REMOVED the webpack plugin block here because
-  // we are now handling Velite in package.json
 };
+
+export default nextConfig;
