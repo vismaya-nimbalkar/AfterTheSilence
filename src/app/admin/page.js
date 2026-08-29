@@ -113,7 +113,7 @@ export default async function AdminPage() {
                 hover:opacity-70
               "
             >
-              🔐 Security
+              Security
             </Link>
 
 
@@ -133,7 +133,7 @@ export default async function AdminPage() {
                 hover:opacity-70
               "
             >
-              ✉ Newsletter
+              Newsletter
             </Link>
 
 

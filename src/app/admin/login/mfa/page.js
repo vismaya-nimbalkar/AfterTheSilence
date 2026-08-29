@@ -197,7 +197,6 @@ export default function AdminMFAPage() {
         <div className="text-center mb-10">
 
           <div className="text-4xl mb-4">
-            🔐
           </div>
 
           <h1 className="text-3xl font-bold">

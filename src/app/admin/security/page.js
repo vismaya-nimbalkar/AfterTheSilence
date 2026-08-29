@@ -1131,7 +1131,7 @@ export default function AdminSecurityPage() {
           >
             {passkeyLoading
               ? "Waiting for passkey..."
-              : "🔐 Add a passkey"}
+              : "Add a passkey"}
           </button>
 
           {/* EXISTING PASSKEYS */}
