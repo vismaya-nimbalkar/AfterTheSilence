@@ -1,6 +1,6 @@
 export const metadata = {
   title: "Contact",
-  description: "This space is not currently open to contact.",
+  description: "This space is currently open to contact.",
 };
 
 export default function Contact() {

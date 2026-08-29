@@ -3,8 +3,8 @@ import { cx } from "@/src/utils";
 import { Inter, Manrope } from "next/font/google";
 import Header from "@/src/components/Header";
 import Footer from "../components/Footer";
+import DisclaimerGate from "../components/DisclaimerGate";
 import siteMetadata from "../utils/siteMetaData";
-import Script from "next/script";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -55,10 +55,11 @@ export default function RootLayout({ children }) {
           "font-mr bg-light text-foreground antialiased"
         )}
       >
-        {/* 🔥 Dark mode script REMOVED on purpose */}
-        <Header />
-        {children}
-        <Footer />
+        <DisclaimerGate>
+          <Header />
+          {children}
+          <Footer />
+        </DisclaimerGate>
       </body>
     </html>
   );

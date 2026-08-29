@@ -1,4 +1,5 @@
 "use client";
+
 import React from "react";
 import Link from "next/link";
 
@@ -17,9 +18,34 @@ const Footer = () => {
         Newsletter coming soon ✨
       </p>
 
-      <div className="w-full mt-16 md:mt-24 relative font-medium border-t border-solid border-light py-6 px-8 flex flex-col md:flex-row items-center justify-between">
+      {/* Footer Links */}
+      <nav
+        aria-label="Footer links"
+        className="mt-10 flex flex-wrap items-center justify-center gap-x-6 gap-y-3 px-6 text-sm font-medium"
+      >
+        {/* Personal Website */}
+        <a
+          href="https://nimbalkar.in"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="opacity-80 transition-opacity hover:opacity-100 hover:underline"
+        >
+          Portfolio
+        </a>
+
+        {/* Disclaimer */}
+        <Link
+          href="/disclaimer"
+          className="opacity-80 transition-opacity hover:opacity-100 hover:underline"
+        >
+          Disclaimer
+        </Link>
+      </nav>
+
+      {/* Copyright */}
+      <div className="w-full mt-10 md:mt-16 relative font-medium border-t border-solid border-light py-6 px-8 flex flex-col md:flex-row items-center justify-between">
         <span className="text-center">
-          &copy;2026 Vismaya Nimbalkar. All rights reserved.
+          &copy;2025-26 Vismaya Nimbalkar. All rights reserved.
         </span>
       </div>
     </footer>
