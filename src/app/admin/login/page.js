@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/src/lib/supabase/client";
 
@@ -10,64 +10,150 @@ export default function AdminLoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [passkeyLoading, setPasskeyLoading] = useState(false);
+  const [rememberMe, setRememberMe] =
+    useState(true);
 
-  const checkMFAAndContinue = async (supabase) => {
-    const { data, error } =
-      await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+  const [error, setError] =
+    useState("");
 
-    if (error) {
-      throw error;
+  const [loading, setLoading] =
+    useState(false);
+
+  const [passkeyLoading, setPasskeyLoading] =
+    useState(false);
+
+  // ------------------------------------------------------------
+  // REMEMBER ME
+  // ------------------------------------------------------------
+
+  useEffect(() => {
+    try {
+      const saved =
+        localStorage.getItem(
+          "after-the-silence-remember-me"
+        );
+
+      if (saved !== null) {
+        setRememberMe(
+          saved === "true"
+        );
+      }
+    } catch {
+      setRememberMe(true);
     }
+  }, []);
 
-    /*
-     * If the user has MFA enabled:
-     *
-     * currentLevel = aal1
-     * nextLevel = aal2
-     *
-     * This means they have successfully entered
-     * their password/passkey, but still need their
-     * authenticator code.
-     */
-    if (
-      data.nextLevel === "aal2" &&
-      data.currentLevel !== "aal2"
-    ) {
-      router.push("/admin/login/mfa");
-      return;
-    }
+  const saveRememberPreference = (
+    value
+  ) => {
+    setRememberMe(value);
 
-    router.push("/admin");
-    router.refresh();
+    try {
+      localStorage.setItem(
+        "after-the-silence-remember-me",
+        String(value)
+      );
+    } catch {}
   };
 
-  const handleLogin = async (event) => {
+  // ------------------------------------------------------------
+  // CHECK MFA
+  // ------------------------------------------------------------
+
+  const checkMFAAndContinue =
+    async (supabase) => {
+      const {
+        data,
+        error,
+      } =
+        await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+
+      if (error) {
+        throw error;
+      }
+
+      console.log(
+        "Supabase AAL:",
+        data
+      );
+
+      // --------------------------------------------------------
+      // MFA REQUIRED
+      // --------------------------------------------------------
+
+      if (
+        data.nextLevel ===
+          "aal2" &&
+        data.currentLevel !==
+          "aal2"
+      ) {
+        router.replace(
+          "/admin/login/mfa"
+        );
+
+        return;
+      }
+
+      // --------------------------------------------------------
+      // FULLY AUTHENTICATED
+      // --------------------------------------------------------
+
+      router.replace("/admin");
+      router.refresh();
+    };
+
+  // ------------------------------------------------------------
+  // PASSWORD LOGIN
+  // ------------------------------------------------------------
+
+  const handleLogin = async (
+    event
+  ) => {
     event.preventDefault();
 
     setError("");
     setLoading(true);
 
-    const supabase = createClient();
+    try {
+      localStorage.setItem(
+        "after-the-silence-remember-me",
+        String(rememberMe)
+      );
+    } catch {}
+
+    const supabase =
+      createClient();
 
     try {
-      const { error } =
-        await supabase.auth.signInWithPassword({
-          email: email.trim(),
-          password,
-        });
+      const {
+        error,
+      } =
+        await supabase.auth.signInWithPassword(
+          {
+            email:
+              email.trim(),
+            password,
+          }
+        );
 
       if (error) {
-        setError("Incorrect email or password.");
+        setError(
+          "Incorrect email or password."
+        );
+
         setLoading(false);
         return;
       }
 
-      await checkMFAAndContinue(supabase);
+      await checkMFAAndContinue(
+        supabase
+      );
+
     } catch (error) {
-      console.error("Admin login error:", error);
+      console.error(
+        "Admin login error:",
+        error
+      );
 
       setError(
         error?.message ||
@@ -78,60 +164,75 @@ export default function AdminLoginPage() {
     }
   };
 
-  const handlePasskeyLogin = async () => {
-    setError("");
-    setPasskeyLoading(true);
+  // ------------------------------------------------------------
+  // PASSKEY LOGIN
+  // ------------------------------------------------------------
 
-    const supabase = createClient();
+  const handlePasskeyLogin =
+    async () => {
+      setError("");
+      setPasskeyLoading(true);
 
-    try {
-      const { error } =
-        await supabase.auth.signInWithPasskey();
+      try {
+        localStorage.setItem(
+          "after-the-silence-remember-me",
+          String(rememberMe)
+        );
+      } catch {}
 
-      if (error) {
+      const supabase =
+        createClient();
+
+      try {
+        const {
+          error,
+        } =
+          await supabase.auth.signInWithPasskey();
+
+        if (error) {
+          console.error(
+            "Passkey login error:",
+            error
+          );
+
+          setError(
+            error.message ||
+              "Could not sign in with your passkey."
+          );
+
+          setPasskeyLoading(false);
+          return;
+        }
+
+        await checkMFAAndContinue(
+          supabase
+        );
+
+      } catch (error) {
         console.error(
           "Passkey login error:",
           error
         );
 
         setError(
-          error.message ||
+          error?.message ||
             "Could not sign in with your passkey."
         );
 
         setPasskeyLoading(false);
-        return;
       }
+    };
 
-      /*
-       * A passkey has successfully authenticated
-       * the user. If TOTP MFA is also enabled,
-       * check whether the MFA challenge is still
-       * required.
-       */
-      await checkMFAAndContinue(supabase);
-    } catch (error) {
-      console.error(
-        "Passkey login error:",
-        error
-      );
-
-      setError(
-        error?.message ||
-          "Could not sign in with your passkey."
-      );
-
-      setPasskeyLoading(false);
-    }
-  };
+  // ------------------------------------------------------------
+  // UI
+  // ------------------------------------------------------------
 
   return (
     <main className="min-h-screen flex items-center justify-center px-6">
+
       <div className="w-full max-w-md">
 
-        {/* Header */}
-
-        <div className="text-center mb-10">
+        <div className="mb-10 text-center">
 
           <h1 className="text-3xl font-bold">
             After The Silence
@@ -143,21 +244,21 @@ export default function AdminLoginPage() {
 
         </div>
 
-
-        {/* Password Login */}
-
         <form
           onSubmit={handleLogin}
           className="space-y-6"
         >
 
-          {/* Email */}
-
           <div>
 
             <label
               htmlFor="email"
-              className="block text-sm font-medium mb-2"
+              className="
+                mb-2
+                block
+                text-sm
+                font-medium
+              "
             >
               Email
             </label>
@@ -167,7 +268,9 @@ export default function AdminLoginPage() {
               type="email"
               value={email}
               onChange={(event) =>
-                setEmail(event.target.value)
+                setEmail(
+                  event.target.value
+                )
               }
               required
               autoComplete="email"
@@ -187,14 +290,16 @@ export default function AdminLoginPage() {
 
           </div>
 
-
-          {/* Password */}
-
           <div>
 
             <label
               htmlFor="password"
-              className="block text-sm font-medium mb-2"
+              className="
+                mb-2
+                block
+                text-sm
+                font-medium
+              "
             >
               Password
             </label>
@@ -204,7 +309,9 @@ export default function AdminLoginPage() {
               type="password"
               value={password}
               onChange={(event) =>
-                setPassword(event.target.value)
+                setPassword(
+                  event.target.value
+                )
               }
               required
               autoComplete="current-password"
@@ -224,8 +331,39 @@ export default function AdminLoginPage() {
 
           </div>
 
+          <label
+            htmlFor="remember-me"
+            className="
+              flex
+              cursor-pointer
+              items-center
+              gap-3
+              select-none
+            "
+          >
 
-          {/* Error */}
+            <input
+              id="remember-me"
+              type="checkbox"
+              checked={rememberMe}
+              onChange={(event) =>
+                saveRememberPreference(
+                  event.target.checked
+                )
+              }
+              className="
+                h-4
+                w-4
+                rounded
+                border-dark/30
+              "
+            />
+
+            <span className="text-sm">
+              Remember me
+            </span>
+
+          </label>
 
           {error && (
             <div
@@ -243,9 +381,6 @@ export default function AdminLoginPage() {
               {error}
             </div>
           )}
-
-
-          {/* Password button */}
 
           <button
             type="submit"
@@ -274,9 +409,6 @@ export default function AdminLoginPage() {
 
         </form>
 
-
-        {/* Divider */}
-
         <div className="my-6 flex items-center gap-4">
 
           <div className="h-px flex-1 bg-dark/20" />
@@ -289,12 +421,11 @@ export default function AdminLoginPage() {
 
         </div>
 
-
-        {/* Passkey */}
-
         <button
           type="button"
-          onClick={handlePasskeyLogin}
+          onClick={
+            handlePasskeyLogin
+          }
           disabled={
             loading ||
             passkeyLoading
@@ -318,9 +449,6 @@ export default function AdminLoginPage() {
             : "Sign in with Passkey"}
         </button>
 
-
-        {/* Security note */}
-
         <p className="mt-6 text-center text-xs opacity-50">
           Your admin account is protected by
           password authentication and additional
@@ -328,6 +456,7 @@ export default function AdminLoginPage() {
         </p>
 
       </div>
+
     </main>
   );
 }

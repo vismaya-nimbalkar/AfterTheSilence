@@ -416,7 +416,7 @@ export default function CommentModeration({
             "
           >
             <p className="font-medium">
-              ✨ Nothing waiting for review.
+              Nothing waiting for review.
             </p>
 
             <p className="mt-2 text-sm opacity-60">

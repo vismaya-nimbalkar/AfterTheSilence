@@ -7,7 +7,6 @@ import { createClient } from "@/src/lib/supabase/client";
 
 export default function AdminSecurityPage() {
   const router = useRouter();
-
   const [supabase] = useState(() => createClient());
 
   // ============================================================
@@ -19,12 +18,20 @@ export default function AdminSecurityPage() {
   const [error, setError] = useState("");
 
   // ============================================================
+  // CHANGE PASSWORD
+  // ============================================================
+
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [passwordLoading, setPasswordLoading] = useState(false);
+  const [passwordMessage, setPasswordMessage] = useState("");
+
+  // ============================================================
   // MFA / TOTP
   // ============================================================
 
   const [mfaEnabled, setMfaEnabled] = useState(false);
   const [mfaFactorId, setMfaFactorId] = useState("");
-
   const [showMFASetup, setShowMFASetup] = useState(false);
 
   const [qrCode, setQrCode] = useState("");
@@ -61,10 +68,6 @@ export default function AdminSecurityPage() {
         return;
       }
 
-      /*
-       * Supabase returns the passkey list directly.
-       * It is NOT { passkeys: [...] }.
-       */
       setPasskeys(
         Array.isArray(data) ? data : []
       );
@@ -88,21 +91,14 @@ export default function AdminSecurityPage() {
       setError("");
 
       try {
-        // --------------------------------------------------------
-        // CHECK USER
-        // --------------------------------------------------------
-
         const {
           data: { user },
-          error: userError,
         } = await supabase.auth.getUser();
 
-        if (userError) {
-          throw userError;
-        }
-
         if (!user) {
-          router.replace("/admin/login");
+          if (mounted) {
+            router.replace("/forbidden");
+          }
           return;
         }
 
@@ -112,9 +108,9 @@ export default function AdminSecurityPage() {
 
         setAuthorized(true);
 
-        // --------------------------------------------------------
+        // ======================================================
         // LOAD MFA FACTORS
-        // --------------------------------------------------------
+        // ======================================================
 
         const {
           data: factors,
@@ -141,9 +137,9 @@ export default function AdminSecurityPage() {
           setMfaFactorId("");
         }
 
-        // --------------------------------------------------------
+        // ======================================================
         // LOAD PASSKEYS
-        // --------------------------------------------------------
+        // ======================================================
 
         await loadPasskeys();
 
@@ -154,6 +150,18 @@ export default function AdminSecurityPage() {
         );
 
         if (mounted) {
+          if (
+            error?.name ===
+              "AuthSessionMissingError" ||
+            error?.message ===
+              "Auth session missing!"
+          ) {
+            router.replace(
+              "/forbidden"
+            );
+            return;
+          }
+
           setError(
             error?.message ||
               "Could not load security settings."
@@ -174,6 +182,110 @@ export default function AdminSecurityPage() {
   }, [router, supabase]);
 
   // ============================================================
+  // CHANGE PASSWORD
+  // ============================================================
+
+  const changePassword = async (event) => {
+    event.preventDefault();
+
+    setError("");
+    setPasswordMessage("");
+
+    if (!newPassword) {
+      setError(
+        "Please enter a new password."
+      );
+      return;
+    }
+
+    if (newPassword.length < 8) {
+      setError(
+        "Your new password must be at least 8 characters long."
+      );
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      setError(
+        "The passwords do not match."
+      );
+      return;
+    }
+
+    setPasswordLoading(true);
+
+    try {
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+
+      if (userError) {
+        throw userError;
+      }
+
+      if (!user) {
+        router.replace("/forbidden");
+        return;
+      }
+
+      const { error: updateError } =
+        await supabase.auth.updateUser({
+          password: newPassword,
+        });
+
+      if (updateError) {
+        throw updateError;
+      }
+
+      setNewPassword("");
+      setConfirmPassword("");
+
+      setPasswordMessage(
+        "Your password has been changed. Please sign in again with your new password."
+      );
+
+      /*
+       * Sign out all local authentication state
+       * after changing the password.
+       *
+       * The user will therefore have to go through
+       * the normal login + MFA flow again.
+       */
+      await supabase.auth.signOut();
+
+      setTimeout(() => {
+        router.replace("/admin/login");
+      }, 1500);
+
+    } catch (error) {
+      console.error(
+        "Password change error:",
+        error
+      );
+
+      if (
+        error?.name ===
+          "AuthSessionMissingError" ||
+        error?.message ===
+          "Auth session missing!"
+      ) {
+        router.replace(
+          "/forbidden"
+        );
+        return;
+      }
+
+      setError(
+        error?.message ||
+          "Could not change your password."
+      );
+    } finally {
+      setPasswordLoading(false);
+    }
+  };
+
+  // ============================================================
   // START MFA SETUP
   // ============================================================
 
@@ -183,22 +295,14 @@ export default function AdminSecurityPage() {
     setMfaLoading(true);
 
     try {
-      // --------------------------------------------------------
-      // MAKE SURE USER IS LOGGED IN
-      // --------------------------------------------------------
-
       const {
         data: { user },
       } = await supabase.auth.getUser();
 
       if (!user) {
-        router.replace("/admin/login");
+        router.replace("/forbidden");
         return;
       }
-
-      // --------------------------------------------------------
-      // CHECK EXISTING MFA FACTORS
-      // --------------------------------------------------------
 
       const {
         data: factors,
@@ -215,10 +319,6 @@ export default function AdminSecurityPage() {
             factor.status === "verified"
         ) || [];
 
-      // --------------------------------------------------------
-      // ALREADY ENABLED
-      // --------------------------------------------------------
-
       if (verifiedTotp.length > 0) {
         setMfaEnabled(true);
         setMfaFactorId(
@@ -232,14 +332,6 @@ export default function AdminSecurityPage() {
         return;
       }
 
-      // --------------------------------------------------------
-      // REMOVE ONLY OLD UNVERIFIED TOTP FACTORS
-      // --------------------------------------------------------
-      //
-      // This prevents abandoned enrollment attempts
-      // from interfering with a fresh setup.
-      //
-
       const unverifiedTotp =
         factors?.totp?.filter(
           (factor) =>
@@ -249,9 +341,10 @@ export default function AdminSecurityPage() {
       for (const factor of unverifiedTotp) {
         const {
           error: unenrollError,
-        } = await supabase.auth.mfa.unenroll({
-          factorId: factor.id,
-        });
+        } =
+          await supabase.auth.mfa.unenroll({
+            factorId: factor.id,
+          });
 
         if (unenrollError) {
           console.warn(
@@ -261,18 +354,15 @@ export default function AdminSecurityPage() {
         }
       }
 
-      // --------------------------------------------------------
-      // CREATE NEW TOTP FACTOR
-      // --------------------------------------------------------
-
       const {
         data,
         error,
-      } = await supabase.auth.mfa.enroll({
-        factorType: "totp",
-        friendlyName:
-          "After The Silence Admin",
-      });
+      } =
+        await supabase.auth.mfa.enroll({
+          factorType: "totp",
+          friendlyName:
+            "After The Silence Admin",
+        });
 
       if (error) {
         throw error;
@@ -295,7 +385,6 @@ export default function AdminSecurityPage() {
       );
 
       setMfaCode("");
-
       setShowMFASetup(true);
 
     } catch (error) {
@@ -303,6 +392,18 @@ export default function AdminSecurityPage() {
         "MFA enrollment error:",
         error
       );
+
+      if (
+        error?.name ===
+          "AuthSessionMissingError" ||
+        error?.message ===
+          "Auth session missing!"
+      ) {
+        router.replace(
+          "/forbidden"
+        );
+        return;
+      }
 
       setError(
         error?.message ||
@@ -340,16 +441,13 @@ export default function AdminSecurityPage() {
     setMfaLoading(true);
 
     try {
-      // --------------------------------------------------------
-      // CREATE CHALLENGE
-      // --------------------------------------------------------
-
       const {
         data: challenge,
         error: challengeError,
-      } = await supabase.auth.mfa.challenge({
-        factorId: mfaFactorId,
-      });
+      } =
+        await supabase.auth.mfa.challenge({
+          factorId: mfaFactorId,
+        });
 
       if (challengeError) {
         throw challengeError;
@@ -361,25 +459,18 @@ export default function AdminSecurityPage() {
         );
       }
 
-      // --------------------------------------------------------
-      // VERIFY CODE
-      // --------------------------------------------------------
-
       const {
         error: verifyError,
-      } = await supabase.auth.mfa.verify({
-        factorId: mfaFactorId,
-        challengeId: challenge.id,
-        code: mfaCode,
-      });
+      } =
+        await supabase.auth.mfa.verify({
+          factorId: mfaFactorId,
+          challengeId: challenge.id,
+          code: mfaCode,
+        });
 
       if (verifyError) {
         throw verifyError;
       }
-
-      // --------------------------------------------------------
-      // SUCCESS
-      // --------------------------------------------------------
 
       setMfaEnabled(true);
       setShowMFASetup(false);
@@ -397,6 +488,18 @@ export default function AdminSecurityPage() {
         "MFA verification error:",
         error
       );
+
+      if (
+        error?.name ===
+          "AuthSessionMissingError" ||
+        error?.message ===
+          "Auth session missing!"
+      ) {
+        router.replace(
+          "/forbidden"
+        );
+        return;
+      }
 
       setError(
         error?.message ||
@@ -446,9 +549,10 @@ export default function AdminSecurityPage() {
       return;
     }
 
-    const confirmed = window.confirm(
-      "Are you sure you want to disable two-factor authentication?"
-    );
+    const confirmed =
+      window.confirm(
+        "Are you sure you want to disable two-factor authentication?"
+      );
 
     if (!confirmed) {
       return;
@@ -464,15 +568,16 @@ export default function AdminSecurityPage() {
       } = await supabase.auth.getUser();
 
       if (!user) {
-        router.replace("/admin/login");
+        router.replace("/forbidden");
         return;
       }
 
       const {
         error,
-      } = await supabase.auth.mfa.unenroll({
-        factorId: mfaFactorId,
-      });
+      } =
+        await supabase.auth.mfa.unenroll({
+          factorId: mfaFactorId,
+        });
 
       if (error) {
         throw error;
@@ -490,6 +595,18 @@ export default function AdminSecurityPage() {
         "Disable MFA error:",
         error
       );
+
+      if (
+        error?.name ===
+          "AuthSessionMissingError" ||
+        error?.message ===
+          "Auth session missing!"
+      ) {
+        router.replace(
+          "/forbidden"
+        );
+        return;
+      }
 
       setError(
         error?.message ||
@@ -511,27 +628,20 @@ export default function AdminSecurityPage() {
     setPasskeyLoading(true);
 
     try {
-      // --------------------------------------------------------
-      // CHECK LOGIN
-      // --------------------------------------------------------
-
       const {
         data: { user },
       } = await supabase.auth.getUser();
 
       if (!user) {
-        router.replace("/admin/login");
+        router.replace("/forbidden");
         return;
       }
-
-      // --------------------------------------------------------
-      // REGISTER PASSKEY
-      // --------------------------------------------------------
 
       const {
         data,
         error,
-      } = await supabase.auth.registerPasskey();
+      } =
+        await supabase.auth.registerPasskey();
 
       if (error) {
         throw error;
@@ -546,10 +656,6 @@ export default function AdminSecurityPage() {
         "Passkey added successfully."
       );
 
-      // --------------------------------------------------------
-      // REFRESH LIST
-      // --------------------------------------------------------
-
       await loadPasskeys();
 
     } catch (error) {
@@ -557,6 +663,18 @@ export default function AdminSecurityPage() {
         "Passkey registration error:",
         error
       );
+
+      if (
+        error?.name ===
+          "AuthSessionMissingError" ||
+        error?.message ===
+          "Auth session missing!"
+      ) {
+        router.replace(
+          "/forbidden"
+        );
+        return;
+      }
 
       setError(
         error?.message ||
@@ -572,14 +690,17 @@ export default function AdminSecurityPage() {
   // DELETE PASSKEY
   // ============================================================
 
-  const deletePasskey = async (passkeyId) => {
+  const deletePasskey = async (
+    passkeyId
+  ) => {
     if (!passkeyId) {
       return;
     }
 
-    const confirmed = window.confirm(
-      "Are you sure you want to remove this passkey?"
-    );
+    const confirmed =
+      window.confirm(
+        "Are you sure you want to remove this passkey?"
+      );
 
     if (!confirmed) {
       return;
@@ -595,23 +716,20 @@ export default function AdminSecurityPage() {
       } = await supabase.auth.getUser();
 
       if (!user) {
-        router.replace("/admin/login");
+        router.replace("/forbidden");
         return;
       }
 
       const {
         error,
-      } = await supabase.auth.passkey.delete(
-        passkeyId
-      );
+      } =
+        await supabase.auth.passkey.delete(
+          passkeyId
+        );
 
       if (error) {
         throw error;
       }
-
-      // --------------------------------------------------------
-      // REFRESH FROM SUPABASE
-      // --------------------------------------------------------
 
       await loadPasskeys();
 
@@ -624,6 +742,18 @@ export default function AdminSecurityPage() {
         "Passkey deletion error:",
         error
       );
+
+      if (
+        error?.name ===
+          "AuthSessionMissingError" ||
+        error?.message ===
+          "Auth session missing!"
+      ) {
+        router.replace(
+          "/forbidden"
+        );
+        return;
+      }
 
       setError(
         error?.message ||
@@ -667,9 +797,7 @@ export default function AdminSecurityPage() {
     <main className="min-h-screen px-6 py-16 sm:px-10">
       <div className="mx-auto max-w-3xl">
 
-        {/* ======================================================
-            HEADER
-        ======================================================= */}
+        {/* HEADER */}
 
         <div className="mb-12">
 
@@ -698,15 +826,14 @@ export default function AdminSecurityPage() {
           </h1>
 
           <p className="mt-3 max-w-xl text-sm opacity-60">
-            Manage two-factor authentication
-            and passkeys for your admin account.
+            Manage your password, two-factor
+            authentication, and passkeys for
+            your admin account.
           </p>
 
         </div>
 
-        {/* ======================================================
-            ERROR
-        ======================================================= */}
+        {/* ERROR */}
 
         {error && (
           <div
@@ -726,11 +853,11 @@ export default function AdminSecurityPage() {
           </div>
         )}
 
-        {/* ======================================================
-            SUCCESS
-        ======================================================= */}
+        {/* SUCCESS */}
 
-        {(mfaMessage || passkeyMessage) && (
+        {(mfaMessage ||
+          passkeyMessage ||
+          passwordMessage) && (
           <div
             className="
               mb-8
@@ -744,16 +871,177 @@ export default function AdminSecurityPage() {
               text-green-700
             "
           >
-            {mfaMessage || passkeyMessage}
+            {passwordMessage ||
+              mfaMessage ||
+              passkeyMessage}
           </div>
         )}
 
-        {/* ======================================================
-            TWO FACTOR AUTHENTICATION
-        ======================================================= */}
+        {/* ====================================================
+            CHANGE PASSWORD
+        ===================================================== */}
 
         <section
           className="
+            rounded-2xl
+            border
+            border-dark/20
+            p-6
+            sm:p-8
+          "
+        >
+
+          <div>
+
+            <h2 className="text-2xl font-semibold">
+              Change password
+            </h2>
+
+            <p className="mt-2 text-sm leading-6 opacity-60">
+              Choose a new password for your
+              admin account. You will be signed
+              out after changing it and will need
+              to sign in again.
+            </p>
+
+          </div>
+
+          <form
+            onSubmit={changePassword}
+            className="mt-6 space-y-5"
+          >
+
+            {/* NEW PASSWORD */}
+
+            <div>
+
+              <label
+                htmlFor="new-password"
+                className="
+                  mb-2
+                  block
+                  text-sm
+                  font-medium
+                "
+              >
+                New password
+              </label>
+
+              <input
+                id="new-password"
+                type="password"
+                value={newPassword}
+                onChange={(event) =>
+                  setNewPassword(
+                    event.target.value
+                  )
+                }
+                autoComplete="new-password"
+                minLength={8}
+                required
+                className="
+                  w-full
+                  rounded-lg
+                  border
+                  border-dark/30
+                  bg-transparent
+                  px-4
+                  py-3
+                  outline-none
+                  focus:border-dark
+                "
+                placeholder="Enter a new password"
+              />
+
+              <p className="mt-2 text-xs opacity-50">
+                Must be at least 8 characters.
+              </p>
+
+            </div>
+
+            {/* CONFIRM PASSWORD */}
+
+            <div>
+
+              <label
+                htmlFor="confirm-password"
+                className="
+                  mb-2
+                  block
+                  text-sm
+                  font-medium
+                "
+              >
+                Confirm new password
+              </label>
+
+              <input
+                id="confirm-password"
+                type="password"
+                value={confirmPassword}
+                onChange={(event) =>
+                  setConfirmPassword(
+                    event.target.value
+                  )
+                }
+                autoComplete="new-password"
+                minLength={8}
+                required
+                className="
+                  w-full
+                  rounded-lg
+                  border
+                  border-dark/30
+                  bg-transparent
+                  px-4
+                  py-3
+                  outline-none
+                  focus:border-dark
+                "
+                placeholder="Enter the password again"
+              />
+
+            </div>
+
+            {/* CHANGE PASSWORD BUTTON */}
+
+            <button
+              type="submit"
+              disabled={
+                passwordLoading ||
+                !newPassword ||
+                !confirmPassword
+              }
+              className="
+                w-full
+                rounded-xl
+                bg-dark
+                px-5
+                py-4
+                font-medium
+                text-light
+                transition-opacity
+                hover:opacity-80
+                disabled:cursor-not-allowed
+                disabled:opacity-50
+              "
+            >
+              {passwordLoading
+                ? "Changing password..."
+                : "Change password"}
+            </button>
+
+          </form>
+
+        </section>
+
+        {/* ====================================================
+            TWO FACTOR AUTHENTICATION
+        ===================================================== */}
+
+        <section
+          className="
+            mt-8
             rounded-2xl
             border
             border-dark/20
@@ -798,9 +1086,7 @@ export default function AdminSecurityPage() {
 
             </div>
 
-            {/* ==================================================
-                MFA ENABLED
-            =================================================== */}
+            {/* MFA ENABLED */}
 
             {mfaEnabled && (
               <div
@@ -849,9 +1135,7 @@ export default function AdminSecurityPage() {
               </div>
             )}
 
-            {/* ==================================================
-                MFA NOT ENABLED
-            =================================================== */}
+            {/* MFA NOT ENABLED */}
 
             {!mfaEnabled &&
               !showMFASetup && (
@@ -878,9 +1162,7 @@ export default function AdminSecurityPage() {
                 </button>
               )}
 
-            {/* ==================================================
-                MFA SETUP
-            =================================================== */}
+            {/* MFA SETUP */}
 
             {showMFASetup && (
               <div
@@ -1052,7 +1334,9 @@ export default function AdminSecurityPage() {
 
                 <button
                   type="button"
-                  onClick={cancelMFASetup}
+                  onClick={
+                    cancelMFASetup
+                  }
                   disabled={mfaLoading}
                   className="
                     mt-3
@@ -1079,9 +1363,9 @@ export default function AdminSecurityPage() {
 
         </section>
 
-        {/* ======================================================
+        {/* ====================================================
             PASSKEYS
-        ======================================================= */}
+        ===================================================== */}
 
         <section
           className="
@@ -1145,77 +1429,81 @@ export default function AdminSecurityPage() {
 
               <div className="mt-3 space-y-3">
 
-                {passkeys.map((passkey) => (
-                  <div
-                    key={passkey.id}
-                    className="
-                      flex
-                      flex-col
-                      gap-3
-                      rounded-xl
-                      border
-                      border-dark/10
-                      p-4
-                      sm:flex-row
-                      sm:items-center
-                      sm:justify-between
-                    "
-                  >
-
-                    <div>
-
-                      <p className="font-medium">
-                        {passkey.friendly_name ||
-                          "Passkey"}
-                      </p>
-
-                      {passkey.created_at && (
-                        <p className="mt-1 text-xs opacity-50">
-                          Added{" "}
-                          {new Date(
-                            passkey.created_at
-                          ).toLocaleDateString()}
-                        </p>
-                      )}
-
-                      {passkey.last_used_at && (
-                        <p className="mt-1 text-xs opacity-50">
-                          Last used{" "}
-                          {new Date(
-                            passkey.last_used_at
-                          ).toLocaleDateString()}
-                        </p>
-                      )}
-
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={() =>
-                        deletePasskey(
-                          passkey.id
-                        )
-                      }
-                      disabled={passkeyLoading}
+                {passkeys.map(
+                  (passkey) => (
+                    <div
+                      key={passkey.id}
                       className="
-                        rounded-lg
+                        flex
+                        flex-col
+                        gap-3
+                        rounded-xl
                         border
-                        border-red-500/30
-                        px-4
-                        py-2
-                        text-sm
-                        font-medium
-                        text-red-600
-                        transition-colors
-                        hover:bg-red-500/5
-                        disabled:opacity-50
+                        border-dark/10
+                        p-4
+                        sm:flex-row
+                        sm:items-center
+                        sm:justify-between
                       "
                     >
-                      Remove
-                    </button>
 
-                  </div>
-                ))}
+                      <div>
+
+                        <p className="font-medium">
+                          {passkey.friendly_name ||
+                            "Passkey"}
+                        </p>
+
+                        {passkey.created_at && (
+                          <p className="mt-1 text-xs opacity-50">
+                            Added{" "}
+                            {new Date(
+                              passkey.created_at
+                            ).toLocaleDateString()}
+                          </p>
+                        )}
+
+                        {passkey.last_used_at && (
+                          <p className="mt-1 text-xs opacity-50">
+                            Last used{" "}
+                            {new Date(
+                              passkey.last_used_at
+                            ).toLocaleDateString()}
+                          </p>
+                        )}
+
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          deletePasskey(
+                            passkey.id
+                          )
+                        }
+                        disabled={
+                          passkeyLoading
+                        }
+                        className="
+                          rounded-lg
+                          border
+                          border-red-500/30
+                          px-4
+                          py-2
+                          text-sm
+                          font-medium
+                          text-red-600
+                          transition-colors
+                          hover:bg-red-500/5
+                          disabled:opacity-50
+                        "
+                      >
+                        Remove
+                      </button>
+
+                    </div>
+                  )
+                )}
 
               </div>
 
@@ -1232,9 +1520,9 @@ export default function AdminSecurityPage() {
 
         </section>
 
-        {/* ======================================================
+        {/* ====================================================
             SECURITY NOTE
-        ======================================================= */}
+        ===================================================== */}
 
         <div
           className="
@@ -1247,7 +1535,7 @@ export default function AdminSecurityPage() {
         >
 
           <p className="text-sm font-medium">
-            🔒 Security recommendation
+            Security recommendation
           </p>
 
           <p className="mt-2 text-sm leading-6 opacity-60">

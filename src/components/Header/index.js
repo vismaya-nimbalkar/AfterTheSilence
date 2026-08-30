@@ -33,47 +33,88 @@ const Header = () => {
   }, [quickExit]);
 
   return (
-    <header className="w-full p-4 px-5 sm:px-10 flex items-center justify-between">
+    <header
+      className="
+        relative
+        w-full
+        p-4
+        px-5
+        sm:px-10
+        flex
+        items-center
+        justify-between
+      "
+    >
       <Logo />
 
-      {/* Quick Exit */}
-      <button
-        type="button"
-        onClick={quickExit}
+      {/* =====================================================
+          MOBILE CONTROLS
+      ====================================================== */}
+
+      <div
         className="
-          fixed
-          top-4
-          right-4
-          z-[100]
-          px-4
-          py-2
-          bg-dark
-          text-light
-          rounded-full
-          text-sm
-          font-medium
-          hover:opacity-80
-          transition-opacity
+          ml-auto
+          flex
+          items-center
+          gap-2
+          sm:hidden
         "
-        aria-label="Quick Exit"
       >
-        Quick Exit
-      </button>
+        {/* Quick Exit */}
 
-      {/* Hamburger Button */}
-      <button
-        type="button"
-        className="inline-block sm:hidden z-50"
-        onClick={toggle}
-        aria-label="Hamburger Menu"
-      >
-        <div className="w-6 cursor-pointer transition-all ease duration-300">
-          <div className="relative">
+        <button
+          type="button"
+          onClick={quickExit}
+          className="
+            relative
+            z-[100]
+            whitespace-nowrap
+            px-4
+            py-2
+            bg-dark
+            text-light
+            rounded-full
+            text-sm
+            font-medium
+            hover:opacity-80
+            transition-opacity
+          "
+          aria-label="Quick Exit"
+        >
+          Quick Exit
+        </button>
 
+        {/* Hamburger Button */}
+
+        <button
+          type="button"
+          className="
+            relative
+            z-[100]
+            inline-flex
+            h-10
+            w-10
+            shrink-0
+            items-center
+            justify-center
+          "
+          onClick={toggle}
+          aria-label="Hamburger Menu"
+          aria-expanded={click}
+        >
+          <div
+            className="
+              relative
+              h-6
+              w-6
+              cursor-pointer
+            "
+          >
             <span
               className="
                 absolute
-                top-0
+                left-0
+                top-1/2
                 inline-block
                 w-full
                 h-0.5
@@ -86,8 +127,8 @@ const Header = () => {
               "
               style={{
                 transform: click
-                  ? "rotate(-45deg) translateY(0)"
-                  : "rotate(0deg) translateY(6px)",
+                  ? "rotate(-45deg)"
+                  : "translateY(-6px)",
               }}
             >
               &nbsp;
@@ -96,7 +137,8 @@ const Header = () => {
             <span
               className="
                 absolute
-                top-0
+                left-0
+                top-1/2
                 inline-block
                 w-full
                 h-0.5
@@ -117,7 +159,8 @@ const Header = () => {
             <span
               className="
                 absolute
-                top-0
+                left-0
+                top-1/2
                 inline-block
                 w-full
                 h-0.5
@@ -130,18 +173,20 @@ const Header = () => {
               "
               style={{
                 transform: click
-                  ? "rotate(45deg) translateY(0)"
-                  : "rotate(0deg) translateY(-6px)",
+                  ? "rotate(45deg)"
+                  : "translateY(6px)",
               }}
             >
               &nbsp;
             </span>
-
           </div>
-        </div>
-      </button>
+        </button>
+      </div>
 
-      {/* Mobile Nav */}
+      {/* =====================================================
+          MOBILE NAV
+      ====================================================== */}
+
       <nav
         className="
           w-max
@@ -158,11 +203,11 @@ const Header = () => {
           flex
           sm:hidden
           fixed
-          right-1/2
-          translate-x-1/2
+          left-1/2
+          -translate-x-1/2
           bg-light/80
           backdrop-blur-sm
-          z-50
+          z-[90]
           transition-all
           ease
           duration-300
@@ -171,7 +216,6 @@ const Header = () => {
           top: click ? "1rem" : "-5rem",
         }}
       >
-
         <Link
           href="/"
           className="mr-2"
@@ -189,6 +233,7 @@ const Header = () => {
         </Link>
 
         {/* Admin */}
+
         <Link
           href="/admin/login"
           className="
@@ -202,10 +247,41 @@ const Header = () => {
         >
           Admin
         </Link>
-
       </nav>
 
-      {/* Desktop Nav */}
+      {/* =====================================================
+          DESKTOP QUICK EXIT
+      ====================================================== */}
+
+      <button
+        type="button"
+        onClick={quickExit}
+        className="
+          fixed
+          top-4
+          right-4
+          z-[100]
+          hidden
+          sm:block
+          px-4
+          py-2
+          bg-dark
+          text-light
+          rounded-full
+          text-sm
+          font-medium
+          hover:opacity-80
+          transition-opacity
+        "
+        aria-label="Quick Exit"
+      >
+        Quick Exit
+      </button>
+
+      {/* =====================================================
+          DESKTOP NAV
+      ====================================================== */}
+
       <nav
         className="
           w-max
@@ -229,7 +305,6 @@ const Header = () => {
           z-50
         "
       >
-
         <Link
           href="/"
           className="mr-2 hover:underline"
@@ -245,6 +320,7 @@ const Header = () => {
         </Link>
 
         {/* Admin */}
+
         <Link
           href="/admin/login"
           className="
@@ -257,7 +333,6 @@ const Header = () => {
         >
           Admin
         </Link>
-
       </nav>
     </header>
   );
