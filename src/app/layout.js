@@ -1,6 +1,7 @@
 import "./globals.css";
 import { cx } from "@/src/utils";
 import { Inter, Manrope } from "next/font/google";
+import Script from "next/script";
 import Header from "@/src/components/Header";
 import Footer from "../components/Footer";
 import DisclaimerGate from "../components/DisclaimerGate";
@@ -60,6 +61,13 @@ export default function RootLayout({ children }) {
           {children}
           <Footer />
         </DisclaimerGate>
+
+        <Script
+          type="module"
+          src="https://static.cloudflareinsights.com/beacon.min.js"
+          data-cf-beacon='{"token":"3f8361338624487580939aab69a4ccd2"}'
+          strategy="afterInteractive"
+        />
       </body>
     </html>
   );

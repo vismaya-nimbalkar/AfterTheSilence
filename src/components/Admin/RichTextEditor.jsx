@@ -103,6 +103,12 @@ const FootnoteReference = Node.create({
 
 /* ============================================================
    TOOLBAR BUTTON
+
+   IMPORTANT:
+   Formatting is executed on mouseDown.
+
+   This prevents the browser from moving focus away from
+   the editor before Tiptap receives the formatting command.
 ============================================================ */
 
 function ToolbarButton({
@@ -117,8 +123,11 @@ function ToolbarButton({
       type="button"
       onMouseDown={(event) => {
         event.preventDefault();
+
+        if (!disabled) {
+          onClick?.(event);
+        }
       }}
-      onClick={onClick}
       disabled={disabled}
       title={title}
       aria-label={title}
@@ -341,6 +350,9 @@ export default function RichTextEditor({
   const syncingRef =
     useRef(false);
 
+  const lastLoadedValueRef =
+    useRef(null);
+
   const [, forceEditorUpdate] =
     useState(0);
 
@@ -552,6 +564,13 @@ export default function RichTextEditor({
 
   /* ==========================================================
      EMIT CONTENT
+
+     This DOES NOT cause the editor to reload.
+
+     The parent may update "value" on every keystroke,
+     but the editor-loading effect below checks whether
+     the incoming content is actually different before
+     calling setContent().
   ========================================================== */
 
   const emitChange = (
@@ -596,11 +615,16 @@ export default function RichTextEditor({
         multicolor: true,
       }),
 
+      /*
+       * IMPORTANT:
+       * inclusive: false means typing after a linked
+       * selection will NOT keep extending the link.
+       */
       Link.configure({
         openOnClick: false,
         autolink: true,
-        defaultProtocol:
-          "https",
+        defaultProtocol: "https",
+        inclusive: false,
       }),
 
       Placeholder.configure({
@@ -616,6 +640,12 @@ export default function RichTextEditor({
       FootnoteReference,
     ],
 
+    /*
+     * The initial value is loaded here.
+     *
+     * After that, the editor is NOT blindly reset
+     * every time the parent changes "value".
+     */
     content:
       parseContent(value),
 
@@ -652,8 +682,7 @@ export default function RichTextEditor({
   });
 
   /* ==========================================================
-     IMPORTANT:
-     FORCE TOOLBAR TO REFLECT CLICKED STATE IMMEDIATELY
+     FORCE TOOLBAR TO REFLECT EDITOR STATE
   ========================================================== */
 
   useEffect(() => {
@@ -692,14 +721,42 @@ export default function RichTextEditor({
   }, [editor]);
 
   /* ==========================================================
-     LOAD EXISTING CONTENT
+     LOAD / SYNCHRONIZE EXISTING CONTENT
+
+     THIS IS THE IMPORTANT FIX.
+
+     Previously:
+
+       [editor, value]
+
+     caused setContent() to run after EVERY keystroke.
+
+     Now we only replace the editor content if the
+     incoming document is genuinely different from
+     what is already inside Tiptap.
+
+     This means:
+
+       click Heading 1
+       type "Hello"
+
+     stays:
+
+       <H1>Hello</H1>
+
+     instead of resetting the cursor/selection.
   ========================================================== */
 
   useEffect(() => {
-    if (
-      !editor ||
-      !value
-    ) {
+    if (!editor) {
+      return;
+    }
+
+    /*
+     * No external value:
+     * Nothing to synchronize.
+     */
+    if (!value) {
       return;
     }
 
@@ -707,105 +764,137 @@ export default function RichTextEditor({
       const parsed =
         JSON.parse(value);
 
+      let incomingDocument = null;
+      let incomingFootnotes = [];
+
       if (
         parsed?.document?.type ===
         "doc"
       ) {
-        syncingRef.current =
-          true;
+        incomingDocument =
+          parsed.document;
 
-        editor.commands.setContent(
-          parsed.document,
-          false
-        );
-
-        const loaded =
+        incomingFootnotes =
           Array.isArray(
             parsed.footnotes
           )
             ? parsed.footnotes
             : [];
-
-        const unique = [];
-        const seen = new Set();
-
-        loaded.forEach(
-          (footnote) => {
-            if (
-              footnote?.id &&
-              !seen.has(
-                footnote.id
-              )
-            ) {
-              seen.add(
-                footnote.id
-              );
-
-              unique.push({
-                id: footnote.id,
-
-                text:
-                  footnote.text ||
-                  "",
-
-                html:
-                  footnote.html ||
-                  escapeHtml(
-                    footnote.text ||
-                      ""
-                  ),
-              });
-            }
-          }
-        );
-
-        footnotesRef.current =
-          unique;
-
-        setFootnotes(
-          unique
-        );
-
-        setTimeout(() => {
-          syncingRef.current =
-            false;
-
-          forceEditorUpdate(
-            (value) => value + 1
-          );
-        }, 0);
-
-        return;
-      }
-
-      if (
+      } else if (
         parsed?.type ===
         "doc"
       ) {
+        incomingDocument =
+          parsed;
+
+        incomingFootnotes = [];
+      }
+
+      if (!incomingDocument) {
+        return;
+      }
+
+      /*
+       * Compare the actual document JSON.
+       *
+       * If the parent merely gave us the value that
+       * WE just emitted, this comparison is equal and
+       * we do nothing.
+       *
+       * That is what prevents the cursor from being
+       * destroyed on every keystroke.
+       */
+      const currentDocument =
+        editor.getJSON();
+
+      const currentDocumentString =
+        JSON.stringify(
+          currentDocument
+        );
+
+      const incomingDocumentString =
+        JSON.stringify(
+          incomingDocument
+        );
+
+      const documentIsDifferent =
+        currentDocumentString !==
+        incomingDocumentString;
+
+      /*
+       * Only call setContent when the actual document
+       * changed externally.
+       */
+      if (documentIsDifferent) {
         syncingRef.current =
           true;
 
         editor.commands.setContent(
-          parsed,
+          incomingDocument,
           false
         );
-
-        footnotesRef.current =
-          [];
-
-        setFootnotes([]);
 
         setTimeout(() => {
           syncingRef.current =
             false;
-
-          forceEditorUpdate(
-            (value) => value + 1
-          );
         }, 0);
       }
+
+      /*
+       * Synchronize footnotes without resetting the
+       * editor whenever the parent rerenders.
+       */
+      const unique = [];
+      const seen = new Set();
+
+      incomingFootnotes.forEach(
+        (footnote) => {
+          if (
+            footnote?.id &&
+            !seen.has(
+              footnote.id
+            )
+          ) {
+            seen.add(
+              footnote.id
+            );
+
+            unique.push({
+              id: footnote.id,
+
+              text:
+                footnote.text ||
+                "",
+
+              html:
+                footnote.html ||
+                escapeHtml(
+                  footnote.text ||
+                  ""
+                ),
+            });
+          }
+        }
+      );
+
+      footnotesRef.current =
+        unique;
+
+      setFootnotes(
+        unique
+      );
+
+      lastLoadedValueRef.current =
+        value;
+
+      forceEditorUpdate(
+        (value) => value + 1
+      );
+
     } catch {
-      // Ignore invalid or old content.
+      /*
+       * Ignore invalid or old content.
+       */
     }
   }, [
     editor,
@@ -1049,6 +1138,9 @@ export default function RichTextEditor({
       return;
     }
 
+    /*
+     * Empty URL = remove link.
+     */
     if (!url.trim()) {
       editor
         .chain()
