@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { createClient } from "@/src/lib/supabase/client";
+import { getUserRole } from "@/src/lib/admin/permissions";
 
 export default function AdminSecurityPage() {
   const router = useRouter();
@@ -15,6 +16,7 @@ export default function AdminSecurityPage() {
 
   const [loading, setLoading] = useState(true);
   const [authorized, setAuthorized] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [error, setError] = useState("");
 
   // ============================================================
@@ -107,6 +109,7 @@ export default function AdminSecurityPage() {
         }
 
         setAuthorized(true);
+        setIsAdmin(getUserRole(user) === "admin");
 
         // ======================================================
         // LOAD MFA FACTORS
@@ -354,15 +357,27 @@ export default function AdminSecurityPage() {
         }
       }
 
-      const {
-        data,
-        error,
-      } =
-        await supabase.auth.mfa.enroll({
+      const friendlyName = isAdmin
+        ? "After The Silence Admin"
+        : "After The Silence Editor";
+
+      let enrollment = await supabase.auth.mfa.enroll({
+        factorType: "totp",
+        friendlyName,
+      });
+
+      if (
+        enrollment.error?.message?.includes(
+          "friendly name"
+        )
+      ) {
+        enrollment = await supabase.auth.mfa.enroll({
           factorType: "totp",
-          friendlyName:
-            "After The Silence Admin",
+          friendlyName: `${friendlyName} ${Date.now()}`,
         });
+      }
+
+      const { data, error } = enrollment;
 
       if (error) {
         throw error;
@@ -377,7 +392,7 @@ export default function AdminSecurityPage() {
       setMfaFactorId(data.id);
 
       setQrCode(
-        data.totp?.qr_code || ""
+        data.totp?.qr_code?.trimEnd() || ""
       );
 
       setSecret(
@@ -774,7 +789,9 @@ export default function AdminSecurityPage() {
       <main className="min-h-screen flex items-center justify-center px-6">
         <div className="text-center">
           <p className="text-sm opacity-60">
-            Checking admin access...
+            {isAdmin
+              ? "Checking admin access..."
+              : "Checking account access..."}
           </p>
         </div>
       </main>
@@ -814,7 +831,7 @@ export default function AdminSecurityPage() {
               hover:opacity-100
             "
           >
-            ← Back to Admin
+            ← Back to {isAdmin ? "Admin" : "Editor"}
           </button>
 
           <p className="text-sm opacity-60">
@@ -828,7 +845,7 @@ export default function AdminSecurityPage() {
           <p className="mt-3 max-w-xl text-sm opacity-60">
             Manage your password, two-factor
             authentication, and passkeys for
-            your admin account.
+            your {isAdmin ? "admin" : "editor"} account.
           </p>
 
         </div>
@@ -899,7 +916,7 @@ export default function AdminSecurityPage() {
 
             <p className="mt-2 text-sm leading-6 opacity-60">
               Choose a new password for your
-              admin account. You will be signed
+              {isAdmin ? "admin" : "editor"} account. You will be signed
               out after changing it and will need
               to sign in again.
             </p>
@@ -1020,6 +1037,8 @@ export default function AdminSecurityPage() {
                 py-4
                 font-medium
                 text-light
+                dark:bg-light
+                dark:text-dark
                 transition-opacity
                 hover:opacity-80
                 disabled:cursor-not-allowed
@@ -1079,7 +1098,7 @@ export default function AdminSecurityPage() {
               </div>
 
               <p className="mt-2 text-sm leading-6 opacity-60">
-                Protect your admin account with
+                Protect your {isAdmin ? "admin" : "editor"} account with
                 a six-digit code from an
                 authenticator app.
               </p>
@@ -1151,6 +1170,8 @@ export default function AdminSecurityPage() {
                     py-4
                     font-medium
                     text-light
+                    dark:bg-light
+                    dark:text-dark
                     transition-opacity
                     hover:opacity-80
                     disabled:opacity-50
@@ -1317,6 +1338,8 @@ export default function AdminSecurityPage() {
                       py-3
                       font-medium
                       text-light
+                      dark:bg-light
+                      dark:text-dark
                       transition-opacity
                       hover:opacity-80
                       disabled:cursor-not-allowed

@@ -2,19 +2,19 @@ export default function DisclaimerPage() {
   return (
     <main className="mx-auto w-full max-w-5xl px-6 py-16 sm:px-10 sm:py-24">
       
-      <h1 className="text-4xl font-bold tracking-tight text-black sm:text-5xl">
+      <h1 className="text-4xl font-bold tracking-tight text-black dark:text-[#f5f5f3] sm:text-5xl">
         DISCLAIMER
       </h1>
 
-      <p className="mt-4 text-sm font-medium text-gray-500">
+      <p className="mt-4 text-sm font-medium text-gray-500 dark:text-[#f5f5f3]/60">
         Last updated December 25, 2025
       </p>
 
-      <div className="mt-16 space-y-12 text-gray-600">
+      <div className="mt-16 space-y-12 text-gray-600 dark:text-[#f5f5f3]/80">
 
         {/* WEBSITE DISCLAIMER */}
         <section>
-          <h2 className="mb-5 text-2xl font-bold text-black">
+          <h2 className="mb-5 text-2xl font-bold text-black dark:text-[#f5f5f3]">
             WEBSITE DISCLAIMER
           </h2>
 
@@ -44,7 +44,7 @@ export default function DisclaimerPage() {
 
         {/* EXTERNAL LINKS DISCLAIMER */}
         <section>
-          <h2 className="mb-5 text-2xl font-bold text-black">
+          <h2 className="mb-5 text-2xl font-bold text-black dark:text-[#f5f5f3]">
             EXTERNAL LINKS DISCLAIMER
           </h2>
 
@@ -66,7 +66,7 @@ export default function DisclaimerPage() {
 
         {/* PROFESSIONAL DISCLAIMER */}
         <section>
-          <h2 className="mb-5 text-2xl font-bold text-black">
+          <h2 className="mb-5 text-2xl font-bold text-black dark:text-[#f5f5f3]">
             PROFESSIONAL DISCLAIMER
           </h2>
 

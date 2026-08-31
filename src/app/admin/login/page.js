@@ -3,12 +3,14 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/src/lib/supabase/client";
+import { Eye, EyeOff } from "lucide-react";
 
-export default function AdminLoginPage() {
+export default function LoginPage() {
   const router = useRouter();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
 
   const [rememberMe, setRememberMe] =
     useState(true);
@@ -126,6 +128,7 @@ export default function AdminLoginPage() {
 
     try {
       const {
+        data: { user },
         error,
       } =
         await supabase.auth.signInWithPassword(
@@ -151,7 +154,7 @@ export default function AdminLoginPage() {
 
     } catch (error) {
       console.error(
-        "Admin login error:",
+        "Login error:",
         error
       );
 
@@ -239,7 +242,7 @@ export default function AdminLoginPage() {
           </h1>
 
           <p className="mt-2 text-sm opacity-70">
-            Admin Login
+            Log in with your email and password
           </p>
 
         </div>
@@ -304,30 +307,53 @@ export default function AdminLoginPage() {
               Password
             </label>
 
-            <input
-              id="password"
-              type="password"
-              value={password}
-              onChange={(event) =>
-                setPassword(
-                  event.target.value
-                )
-              }
-              required
-              autoComplete="current-password"
-              className="
-                w-full
-                rounded-lg
-                border
-                border-dark/30
-                bg-transparent
-                px-4
-                py-3
-                outline-none
-                focus:border-dark
-              "
-              placeholder="••••••••"
-            />
+            <div className="relative">
+              <input
+                id="password"
+                type={showPassword ? "text" : "password"}
+                value={password}
+                onChange={(event) =>
+                  setPassword(
+                    event.target.value
+                  )
+                }
+                required
+                autoComplete="current-password"
+                className="
+                  w-full
+                  rounded-lg
+                  border
+                  border-dark/30
+                  bg-transparent
+                  px-4
+                  py-3
+                  pr-12
+                  outline-none
+                  focus:border-dark
+                "
+                placeholder="••••••••"
+              />
+
+              <button
+                type="button"
+                onClick={() => setShowPassword((visible) => !visible)}
+                className="
+                  absolute
+                  right-3
+                  top-1/2
+                  -translate-y-1/2
+                  rounded-md
+                  p-2
+                  opacity-60
+                  transition-opacity
+                  hover:opacity-100
+                "
+                aria-label={showPassword ? "Hide password" : "Show password"}
+                title={showPassword ? "Hide password" : "Show password"}
+              >
+                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
 
           </div>
 
@@ -396,6 +422,8 @@ export default function AdminLoginPage() {
               py-3
               font-medium
               text-light
+              dark:bg-light
+              dark:text-dark
               transition-opacity
               hover:opacity-80
               disabled:cursor-not-allowed
@@ -448,12 +476,6 @@ export default function AdminLoginPage() {
             ? "Waiting for passkey..."
             : "Sign in with Passkey"}
         </button>
-
-        <p className="mt-6 text-center text-xs opacity-50">
-          Your admin account is protected by
-          password authentication and additional
-          security verification.
-        </p>
 
       </div>
 

@@ -79,9 +79,9 @@ export default function DisclaimerGate({ children }) {
       </div>
 
       {/* Full-screen disclaimer gate */}
-      <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-white p-4 sm:p-6">
+      <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-white p-4 dark:bg-dark sm:p-6">
 
-        <div className="flex h-full max-h-[900px] w-full max-w-5xl flex-col rounded-2xl border border-black/10 bg-white shadow-2xl">
+        <div className="flex h-full max-h-[900px] w-full max-w-5xl flex-col rounded-2xl border border-black/10 bg-white text-dark shadow-2xl dark:border-light/20 dark:bg-[#f5f5f3] dark:text-dark">
 
           {/* Header */}
           <div className="border-b border-black/10 px-6 py-6 sm:px-10">
@@ -90,7 +90,7 @@ export default function DisclaimerGate({ children }) {
               DISCLAIMER
             </h1>
 
-            <p className="mt-3 text-sm font-medium text-gray-500">
+            <p className="mt-3 text-sm font-medium text-gray-500 dark:text-dark/60">
               Last updated December 25, 2025
             </p>
 
@@ -105,7 +105,7 @@ export default function DisclaimerGate({ children }) {
                 WEBSITE DISCLAIMER
               </h2>
 
-              <p className="text-sm leading-7 text-gray-600 sm:text-base">
+              <p className="text-sm leading-7 text-gray-600 dark:text-dark/80 sm:text-base">
                 The information provided by Vismaya Nimbalkar &amp; After The
                 Silence (&quot;we&quot;, &quot;us&quot;, or &quot;our&quot;) on{" "}
                 <a
@@ -137,7 +137,7 @@ export default function DisclaimerGate({ children }) {
                 EXTERNAL LINKS DISCLAIMER
               </h2>
 
-              <p className="text-sm leading-7 text-gray-600 sm:text-base">
+              <p className="text-sm leading-7 text-gray-600 dark:text-dark/80 sm:text-base">
                 The Site may contain (or you may be sent through the Site)
                 links to other websites or content belonging to or originating
                 from third parties or links to websites and features in
@@ -161,7 +161,7 @@ export default function DisclaimerGate({ children }) {
                 PROFESSIONAL DISCLAIMER
               </h2>
 
-              <p className="text-sm leading-7 text-gray-600 sm:text-base">
+              <p className="text-sm leading-7 text-gray-600 dark:text-dark/80 sm:text-base">
                 The Site cannot and does not contain legal, medical advice.
                 The legal, medical information is provided for general
                 informational and educational purposes only and is not a
@@ -178,7 +178,7 @@ export default function DisclaimerGate({ children }) {
           </div>
 
           {/* Consent area */}
-          <div className="border-t border-black/10 bg-gray-50 px-6 py-6 sm:px-10">
+          <div className="border-t border-black/10 bg-gray-50 px-6 py-6 dark:border-dark/20 dark:bg-[#f5f5f3] sm:px-10">
 
             <label className="flex cursor-pointer items-start gap-3">
 
@@ -191,7 +191,7 @@ export default function DisclaimerGate({ children }) {
                 className="mt-1 h-5 w-5 shrink-0 cursor-pointer accent-black"
               />
 
-              <span className="text-sm leading-6 text-gray-700">
+              <span className="text-sm leading-6 text-gray-700 dark:text-dark">
                 I have read and understood this disclaimer and acknowledge
                 that I am accessing and using this website at my own risk.
               </span>

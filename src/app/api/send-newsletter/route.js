@@ -1,5 +1,6 @@
 import { Resend } from "resend";
 import { createClient } from "@/src/lib/supabase/server";
+import { getUserRole } from "@/src/lib/admin/permissions";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -12,10 +13,10 @@ export async function POST(request) {
       data: { user },
     } = await supabase.auth.getUser();
 
-    if (!user) {
+    if (!user || getUserRole(user) !== "admin") {
       return Response.json(
         {
-          error: "Unauthorized.",
+          error: "Only administrators can send newsletters.",
         },
         {
           status: 401,

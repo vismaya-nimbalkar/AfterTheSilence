@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/src/lib/supabase/server";
+import { getUserRole } from "@/src/lib/admin/permissions";
 
 export async function POST(request, { params }) {
   try {
@@ -13,7 +14,7 @@ export async function POST(request, { params }) {
       data: { user },
     } = await supabase.auth.getUser();
 
-    if (!user) {
+    if (!user || getUserRole(user) !== "admin") {
       return NextResponse.json(
         {
           error: "Unauthorized.",

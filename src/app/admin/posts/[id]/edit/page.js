@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { createClient } from "@/src/lib/supabase/client";
+import RichTextEditor from "@/src/components/Admin/RichTextEditor";
 
 export default function EditPostPage() {
   const params = useParams();
@@ -18,6 +19,10 @@ export default function EditPostPage() {
   const [content, setContent] = useState("");
   const [author, setAuthor] = useState("");
   const [tags, setTags] = useState("");
+  const [imageFile, setImageFile] = useState(null);
+  const [imagePreview, setImagePreview] = useState("");
+  const [existingImageUrl, setExistingImageUrl] = useState("");
+  const [imageLabel, setImageLabel] = useState("No cover image selected yet");
   const [isPublished, setIsPublished] = useState(false);
 
   const supabase = createClient();
@@ -55,6 +60,11 @@ export default function EditPostPage() {
           ? post.tags.join(", ")
           : post.tags || ""
       );
+      setExistingImageUrl(post.image_url || "");
+      setImagePreview(post.image_url || "");
+      setImageLabel(
+        post.image_url ? "Current cover image selected" : "No cover image selected yet"
+      );
       setIsPublished(post.is_published || false);
 
       setLoading(false);
@@ -62,6 +72,24 @@ export default function EditPostPage() {
 
     loadPost();
   }, [params.id]);
+
+  const handleImageChange = (event) => {
+    const file = event.target.files?.[0];
+
+    if (!file) {
+      return;
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      setError("Please choose an image smaller than 10 MB.");
+      return;
+    }
+
+    setError("");
+    setImageFile(file);
+    setImagePreview(URL.createObjectURL(file));
+    setImageLabel(`Selected: ${file.name}`);
+  };
 
   const handleSave = async (publish) => {
     setError("");
@@ -72,6 +100,42 @@ export default function EditPostPage() {
       .map((tag) => tag.trim())
       .filter(Boolean);
 
+    let nextImageUrl = existingImageUrl || null;
+
+    try {
+      if (imageFile) {
+        const fileExtension =
+          imageFile.name.split(".").pop()?.toLowerCase() || "jpg";
+
+        const fileName = `${crypto.randomUUID()}.${fileExtension}`;
+        const filePath = `covers/${fileName}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from("blog-images")
+          .upload(filePath, imageFile, {
+            cacheControl: "3600",
+            upsert: false,
+          });
+
+        if (uploadError) {
+          throw new Error(
+            uploadError.message || "Could not upload the cover image."
+          );
+        }
+
+        const {
+          data: { publicUrl },
+        } = supabase.storage.from("blog-images").getPublicUrl(filePath);
+
+        nextImageUrl = publicUrl;
+      }
+    } catch (uploadErr) {
+      console.error(uploadErr);
+      setError(uploadErr.message || "Could not save the cover image.");
+      setSaving(false);
+      return;
+    }
+
     const updateData = {
       title: title.trim(),
       slug: slug.trim(),
@@ -79,6 +143,7 @@ export default function EditPostPage() {
       content,
       author: author.trim(),
       tags: tagArray,
+      image_url: nextImageUrl,
       is_published: publish,
       updated_at: new Date().toISOString(),
     };
@@ -202,17 +267,52 @@ export default function EditPostPage() {
             />
           </div>
 
-          <div>
-            <label className="mb-2 block text-sm font-medium">
-              Content
-            </label>
+          <div className="rounded-2xl border border-dark/20 p-4">
+            <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <label className="block text-sm font-medium">
+                  Cover Image
+                </label>
+                <p className="mt-1 text-sm opacity-60">{imageLabel}</p>
+              </div>
 
-            <textarea
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-              rows={25}
-              className="w-full rounded-lg border border-dark/20 bg-transparent px-4 py-3 font-mono text-sm outline-none"
-            />
+              <label className="inline-flex cursor-pointer items-center justify-center rounded-lg border border-dark/20 bg-dark px-4 py-2 text-sm font-medium text-light transition-opacity hover:opacity-80">
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/gif"
+                  onChange={handleImageChange}
+                  className="hidden"
+                />
+                Change image
+              </label>
+            </div>
+
+            <p className="mb-4 text-sm opacity-50">
+              JPG, PNG or WebP. Maximum 10 MB.
+            </p>
+
+            {imagePreview && (
+              <div className="overflow-hidden rounded-xl border border-dark/20">
+                <img
+                  src={imagePreview}
+                  alt="Cover preview"
+                  className="aspect-video w-full object-cover"
+                />
+              </div>
+            )}
+          </div>
+
+          <div className="rounded-2xl border border-dark/20 p-4">
+            <div className="mb-3">
+              <label className="block text-sm font-medium">
+                Content
+              </label>
+              <p className="mt-1 text-sm opacity-50">
+                Write your article using the formatting tools below.
+              </p>
+            </div>
+
+            <RichTextEditor value={content} onChange={setContent} />
           </div>
 
           <div className="flex items-center gap-3">

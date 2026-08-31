@@ -16,6 +16,116 @@ export const dynamic = "force-dynamic";
 const generateSlug = (tag) =>
   tag.toLowerCase().trim().replace(/\s+/g, "-");
 
+function getTextFromNode(node) {
+  if (!node) {
+    return "";
+  }
+
+  if (node.type === "text") {
+    return node.text || "";
+  }
+
+  if (Array.isArray(node.content)) {
+    return node.content
+      .map((child) => getTextFromNode(child))
+      .join("");
+  }
+
+  return "";
+}
+
+function buildSupabaseToc(content) {
+  if (!content) {
+    return [];
+  }
+
+  const normalize = (value) => {
+    if (!value) {
+      return [];
+    }
+
+    const toc = [];
+    const stack = [{ level: 0, items: toc }];
+
+    const flatten = (nodeList = []) => {
+      nodeList.forEach((node) => {
+        if (!node || node.type !== "heading") {
+          return;
+        }
+
+        const level = Math.min(
+          Math.max(
+            Number(node.attrs?.level) || 2,
+            1
+          ),
+          3
+        );
+
+        const title =
+          getTextFromNode(node)
+            .replace(/\s+/g, " ")
+            .trim();
+
+        if (!title) {
+          return;
+        }
+
+        const item = {
+          title,
+          url: `#${generateSlug(title)}`,
+          items: [],
+        };
+
+        while (
+          stack.length > 1 &&
+          level <= stack[stack.length - 1].level
+        ) {
+          stack.pop();
+        }
+
+        stack[stack.length - 1].items.push(item);
+        stack.push({ level, items: item.items });
+      });
+    };
+
+    flatten(value.content || []);
+    return toc;
+  };
+
+  try {
+    const parsed = JSON.parse(content);
+    const document = parsed?.document || parsed;
+    return normalize(document);
+  } catch {
+    const markdownHeadings =
+      String(content).match(/^#{1,6}\s+.*$/gm) || [];
+
+    const toc = [];
+
+    markdownHeadings.forEach((heading) => {
+      const match = heading.match(/^(#{1,6})\s+(.*)$/);
+
+      if (!match) {
+        return;
+      }
+
+      const title = match[2].trim();
+
+      if (!title) {
+        return;
+      }
+
+      toc.push({
+        title,
+        url: `#${generateSlug(title)}`,
+        items: [],
+      });
+    });
+
+    return toc;
+  }
+}
+
 function TableOfContentsItem({ item, level = "two" }) {
   return (
     <li className="py-1">
@@ -85,6 +195,7 @@ export default async function BlogPage({ params }) {
       : [];
 
     const content = supabasePost.content || "";
+    const toc = buildSupabaseToc(content);
 
     const wordCount = content
       .trim()
@@ -371,9 +482,20 @@ export default async function BlogPage({ params }) {
                   Table Of Content
                 </summary>
 
-                <p className="mt-4 text-sm opacity-60">
-                  This post was created through the admin dashboard.
-                </p>
+                {toc.length > 0 ? (
+                  <ul className="mt-4 font-in text-base">
+                    {toc.map((item) => (
+                      <TableOfContentsItem
+                        key={item.url}
+                        item={item}
+                      />
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="mt-4 text-sm opacity-60">
+                    This post does not have headings yet.
+                  </p>
+                )}
 
               </details>
 

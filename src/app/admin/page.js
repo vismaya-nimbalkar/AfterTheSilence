@@ -5,6 +5,7 @@ import DeletePostButton from "@/src/components/Admin/DeletePostButton";
 import LogoutButton from "@/src/components/Admin/LogoutButton";
 import CommentModeration from "@/src/components/Admin/CommentModeration";
 import BannedIPs from "@/src/components/Admin/BannedIPs";
+import { getUserRole } from "@/src/lib/admin/permissions";
 
 export default async function AdminPage() {
   const supabase = await createClient();
@@ -22,33 +23,54 @@ export default async function AdminPage() {
     redirect("/forbidden");
   }
 
+  const role = getUserRole(user);
+  const isAdmin = role === "admin";
+
   // ============================================================
   // GET POSTS
   // ============================================================
 
-  const {
-    data: posts,
-    error: postsError,
-  } = await supabase
+  let postsQuery = supabase
     .from("posts")
     .select("*")
     .order("created_at", {
       ascending: false,
     });
 
+  if (!isAdmin) {
+    postsQuery = postsQuery.eq("author", user.email || "");
+  }
+
+  const {
+    data: posts,
+    error: postsError,
+  } = await postsQuery;
+
   // ============================================================
   // GET COMMENTS
   // ============================================================
 
-  const {
-    data: comments,
-    error: commentsError,
-  } = await supabase
+  let commentsQuery = supabase
     .from("comments")
     .select("*")
     .order("created_at", {
       ascending: false,
     });
+
+  if (!isAdmin) {
+    const ownPosts = (posts || []).map((post) => post.slug).filter(Boolean);
+
+    if (ownPosts.length === 0) {
+      commentsQuery = commentsQuery.in("post_slug", ["__no_posts__"]);
+    } else {
+      commentsQuery = commentsQuery.in("post_slug", ownPosts);
+    }
+  }
+
+  const {
+    data: comments,
+    error: commentsError,
+  } = await commentsQuery;
 
   const pendingComments =
     comments?.filter(
@@ -81,7 +103,7 @@ export default async function AdminPage() {
             </p>
 
             <h1 className="mt-2 text-4xl font-bold">
-              Admin Dashboard
+              {isAdmin ? "Admin Dashboard" : "Editor Dashboard"}
             </h1>
 
             <p className="mt-2 text-sm opacity-60">
@@ -119,9 +141,10 @@ export default async function AdminPage() {
 
             {/* Newsletter */}
 
-            <Link
-              href="/admin/newsletter"
-              className="
+            {isAdmin && (
+              <Link
+                href="/admin/newsletter"
+                className="
                 rounded-lg
                 border
                 border-dark
@@ -132,10 +155,32 @@ export default async function AdminPage() {
                 transition-opacity
                 hover:opacity-70
               "
-            >
-              Newsletter
-            </Link>
+              >
+                Newsletter
+              </Link>
+            )}
 
+
+            {/* Editors */}
+
+            {isAdmin && (
+              <Link
+                href="/admin/editors"
+                className="
+                  rounded-lg
+                  border
+                  border-dark
+                  px-5
+                  py-3
+                  text-center
+                  font-medium
+                  transition-opacity
+                  hover:opacity-70
+                "
+              >
+                Editors
+              </Link>
+            )}
 
             {/* New Post */}
 
@@ -149,6 +194,8 @@ export default async function AdminPage() {
                 text-center
                 font-medium
                 text-light
+                dark:bg-light
+                dark:text-dark
                 transition-opacity
                 hover:opacity-80
               "
@@ -255,6 +302,8 @@ export default async function AdminPage() {
           {!commentsError && (
             <CommentModeration
               comments={comments || []}
+              canModerateAll={isAdmin}
+              role={role}
             />
           )}
 
@@ -265,7 +314,7 @@ export default async function AdminPage() {
             BANNED COMMENTERS
         ======================================================= */}
 
-        <BannedIPs />
+        {isAdmin && <BannedIPs />}
 
 
         {/* ======================================================
@@ -355,6 +404,8 @@ export default async function AdminPage() {
                     px-5
                     py-3
                     text-light
+                    dark:bg-light
+                    dark:text-dark
                     transition-opacity
                     hover:opacity-80
                   "

@@ -123,7 +123,7 @@ export default async function Home() {
     );
 
   return (
-    <main className="flex flex-col items-center justify-center">
+    <main className="home-page flex flex-col items-center justify-center">
       <HomeCoverSection blogs={sortedBlogs} />
 
       <FeaturedPosts blogs={sortedBlogs} />

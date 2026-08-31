@@ -9,7 +9,7 @@ const AboutCoverSection = () => {
         <Image
           src={profileCharacter}
           alt="After The Silence"
-          className="w-full xs:w-2/3 sm:w-3/4 md:w-2/3 lg:w-1/2 xl:w-1/3 h-auto object-contain object-center"
+          className="about-shield w-full xs:w-2/3 sm:w-3/4 md:w-2/3 lg:w-1/2 xl:w-1/3 h-auto object-contain object-center"
           priority
           sizes="(max-width: 768px) 100vw,(max-width: 1180px) 50vw, 50vw"
         />

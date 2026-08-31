@@ -21,7 +21,7 @@ const BlogLayoutOne = ({ blog }) => {
     blog.image.src.includes("supabase.co/storage");
 
   return (
-    <div className="group inline-block overflow-hidden rounded-xl">
+    <div className="group home-image-frame inline-block overflow-hidden rounded-xl">
 
       <div
         className="

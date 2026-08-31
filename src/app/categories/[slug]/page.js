@@ -1,27 +1,59 @@
-import { blogs as allBlogs } from "@/.velite/generated";
+import { blogs as veliteBlogs } from "@/.velite/generated";
 import BlogLayoutThree from "@/src/components/Blog/BlogLayoutThree";
 import Categories from "@/src/components/Blog/Categories";
+import { createClient } from "@/src/lib/supabase/server";
+
+export const dynamic = "force-dynamic";
 
 // Clean, stateless helper function to replace github-slugger
 const generateSlug = (tag) => tag.toLowerCase().trim().replace(/\s+/g, '-');
 
-export async function generateStaticParams() {
-  const categories = [];
-  const paths = [{ slug: "all" }];
+async function getPublishedSupabaseBlogs() {
+  const supabase = await createClient();
 
-  allBlogs.map((blog) => {
-    if (blog.isPublished) {
-      blog.tags.map((tag) => {
-        let slugified = generateSlug(tag); // Use the stateless helper
-        if (!categories.includes(slugified)) {
-          categories.push(slugified);
-          paths.push({ slug: slugified });
-        }
-      });
-    }
+  const { data: supabasePosts } = await supabase
+    .from("posts")
+    .select("*")
+    .eq("is_published", true)
+    .order("published_at", {
+      ascending: false,
+    });
+
+  return (supabasePosts || []).map((post) => {
+    const content = post.content || "";
+    const wordCount = content
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean).length;
+
+    return {
+      id: post.id,
+      title: post.title,
+      slug: post.slug,
+      url: `/blogs/${post.slug}`,
+      description: post.description || "",
+      author: post.author || "",
+      tags: Array.isArray(post.tags) ? post.tags : [],
+      publishedAt: post.published_at || post.created_at,
+      updatedAt: post.updated_at || post.published_at || post.created_at,
+      isPublished: post.is_published,
+      body: post.content || "",
+      content: post.content || "",
+      readingTime: {
+        text: `${Math.max(1, Math.ceil(wordCount / 200))} min read`,
+        minutes: Math.max(1, Math.ceil(wordCount / 200)),
+      },
+      image: post.image_url
+        ? {
+            src: post.image_url,
+            width: 1200,
+            height: 630,
+            blurDataURL: "",
+          }
+        : null,
+      image_url: post.image_url,
+    };
   });
-
-  return paths;
 }
 
 export async function generateMetadata({ params }) {
@@ -37,10 +69,15 @@ const CategoryPage = async ({ params }) => {
   const { slug } = await params;  // Await params before accessing slug
   const slugified = slug || 'all';  // Safe access
 
+  const supabaseBlogs = await getPublishedSupabaseBlogs();
+  const allBlogs = [...supabaseBlogs, ...veliteBlogs].filter((blog) => blog && blog.isPublished !== false);
+
   const otherCategories = [];
-  
+
   // Gather all categories except "all"
   allBlogs.forEach(blog => {
+    if (!Array.isArray(blog.tags)) return;
+
     blog.tags.forEach(tag => {
       const slugifiedTag = generateSlug(tag);  // Use the stateless helper
       if (slugifiedTag !== "all" && !otherCategories.includes(slugifiedTag)) {
@@ -58,12 +95,11 @@ const CategoryPage = async ({ params }) => {
   // Filter the blogs by category, THEN sort them by date (oldest to newest)
   const blogs = allBlogs.filter(blog => {
     if (slugified === "all") return true;
+    if (!Array.isArray(blog.tags)) return false;
     return blog.tags.some(tag => generateSlug(tag) === slugified); 
   }).sort((a, b) => {
-    // We create Date objects from your Velite date field to compare them
-    // It checks for 'date', 'publishedAt', or 'createdAt' fields
-    const dateA = new Date(a.date || a.publishedAt || a.createdAt);
-    const dateB = new Date(b.date || b.publishedAt || b.createdAt);
+    const dateA = new Date(a.date || a.publishedAt || a.createdAt || a.updatedAt || 0);
+    const dateB = new Date(b.date || b.publishedAt || b.createdAt || b.updatedAt || 0);
     return dateA.getTime() - dateB.getTime(); // Updated to sort Oldest to Newest
   });
 

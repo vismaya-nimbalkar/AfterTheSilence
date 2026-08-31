@@ -24,7 +24,7 @@ const BlogLayoutTwo = ({ blog }) => {
 
       <Link
         href={blog.url}
-        className="col-span-12 lg:col-span-4 h-full rounded-xl overflow-hidden"
+        className="home-image-frame col-span-12 lg:col-span-4 h-full rounded-xl overflow-hidden"
       >
 
         {isSupabaseImage ? (

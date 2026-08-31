@@ -5,19 +5,40 @@ import Logo from "./Logo";
 import { useState, useEffect, useCallback } from "react";
 
 const QUICK_EXIT_URL = "https://www.google.com";
+import { MoonIcon, SunIcon } from "../Icons";
+import { useThemeSwitch } from "../Hooks/useThemeSwitch";
 
 const Header = () => {
   const [click, setClick] = useState(false);
+  const [mode, setMode] = useThemeSwitch();
 
   const toggle = () => {
     setClick(!click);
   };
 
   const quickExit = useCallback(() => {
+    try {
+      sessionStorage.setItem(
+        "after-the-silence-quick-exit",
+        "true"
+      );
+    } catch {}
+
     window.location.replace(QUICK_EXIT_URL);
   }, []);
 
   useEffect(() => {
+    try {
+      if (
+        sessionStorage.getItem(
+          "after-the-silence-quick-exit"
+        ) === "true"
+      ) {
+        window.location.replace(QUICK_EXIT_URL);
+        return undefined;
+      }
+    } catch {}
+
     const handleEscape = (event) => {
       if (event.key === "Escape") {
         event.preventDefault();
@@ -56,11 +77,16 @@ const Header = () => {
           ml-auto
           flex
           items-center
-          gap-2
+          gap-4
           sm:hidden
         "
       >
         {/* Quick Exit */}
+
+        <span
+          aria-hidden="true"
+          className="mx-3 h-6 w-px bg-dark/30 dark:bg-[#f5f5f3]/30"
+        />
 
         <button
           type="button"
@@ -73,6 +99,8 @@ const Header = () => {
             py-2
             bg-dark
             text-light
+              dark:bg-[#f5f5f3]
+            dark:text-dark
             rounded-full
             text-sm
             font-medium
@@ -119,7 +147,7 @@ const Header = () => {
                 w-full
                 h-0.5
                 bg-dark
-                dark:bg-light
+                dark:bg-[#f5f5f3]
                 rounded
                 transition-all
                 ease
@@ -143,7 +171,7 @@ const Header = () => {
                 w-full
                 h-0.5
                 bg-dark
-                dark:bg-light
+                dark:bg-[#f5f5f3]
                 rounded
                 transition-all
                 ease
@@ -165,7 +193,7 @@ const Header = () => {
                 w-full
                 h-0.5
                 bg-dark
-                dark:bg-light
+                dark:bg-[#f5f5f3]
                 rounded
                 transition-all
                 ease
@@ -206,6 +234,8 @@ const Header = () => {
           left-1/2
           -translate-x-1/2
           bg-light/80
+          dark:bg-dark/80
+          dark:text-[#f5f5f3]
           backdrop-blur-sm
           z-[90]
           transition-all
@@ -213,7 +243,7 @@ const Header = () => {
           duration-300
         "
         style={{
-          top: click ? "1rem" : "-5rem",
+          top: click ? "4.75rem" : "-5rem",
         }}
       >
         <Link
@@ -232,7 +262,7 @@ const Header = () => {
           About
         </Link>
 
-        {/* Admin */}
+        {/* Login */}
 
         <Link
           href="/admin/login"
@@ -245,8 +275,24 @@ const Header = () => {
           "
           onClick={() => setClick(false)}
         >
-          Admin
+          Login
         </Link>
+
+        <button
+          type="button"
+          onClick={() =>
+            setMode(mode === "dark" ? "light" : "dark")
+          }
+          className="rounded-full p-1 hover:opacity-70"
+          aria-label={mode === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+          title={mode === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+        >
+          {mode === "dark" ? (
+            <SunIcon className="h-5 w-5" />
+          ) : (
+            <MoonIcon className="h-5 w-5" />
+          )}
+        </button>
       </nav>
 
       {/* =====================================================
@@ -267,6 +313,8 @@ const Header = () => {
           py-2
           bg-dark
           text-light
+          dark:bg-light
+          dark:text-dark
           rounded-full
           text-sm
           font-medium
@@ -301,6 +349,8 @@ const Header = () => {
           right-1/2
           translate-x-1/2
           bg-light/80
+          dark:bg-dark/80
+          dark:text-[#f5f5f3]
           backdrop-blur-sm
           z-50
         "
@@ -319,7 +369,7 @@ const Header = () => {
           About
         </Link>
 
-        {/* Admin */}
+        {/* Login */}
 
         <Link
           href="/admin/login"
@@ -331,8 +381,29 @@ const Header = () => {
             hover:underline
           "
         >
-          Admin
+          Login
         </Link>
+
+        <span
+          aria-hidden="true"
+          className="mx-3 h-6 w-px bg-dark/30 dark:bg-[#f5f5f3]/30"
+        />
+
+        <button
+          type="button"
+          onClick={() =>
+            setMode(mode === "dark" ? "light" : "dark")
+          }
+          className="rounded-full p-1 hover:opacity-70"
+          aria-label={mode === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+          title={mode === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+        >
+          {mode === "dark" ? (
+            <SunIcon className="h-5 w-5" />
+          ) : (
+            <MoonIcon className="h-5 w-5" />
+          )}
+        </button>
       </nav>
     </header>
   );

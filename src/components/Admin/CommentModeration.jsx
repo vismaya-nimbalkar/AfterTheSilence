@@ -5,6 +5,8 @@ import CommentReply from "./CommentReply";
 
 export default function CommentModeration({
   comments: initialComments = [],
+  canModerateAll = true,
+  role = "admin",
 }) {
   const [comments, setComments] =
     useState(initialComments);
@@ -768,7 +770,8 @@ function CommentCard({
 
           {/* Approve */}
 
-          {!comment.is_admin &&
+          {canModerateAll &&
+            !comment.is_admin &&
             comment.status !==
               "approved" && (
               <button
@@ -798,7 +801,8 @@ function CommentCard({
 
           {/* Reject */}
 
-          {!comment.is_admin &&
+          {canModerateAll &&
+            !comment.is_admin &&
             comment.status !==
               "rejected" && (
               <button
@@ -826,36 +830,37 @@ function CommentCard({
 
           {/* Ban */}
 
-          {!comment.is_admin && (
-            <button
-              type="button"
-              onClick={onBan}
-              disabled={loading}
-              className="
-                rounded-lg
-                border
-                border-red-500/30
-                px-4
-                py-2
-                text-sm
-                font-medium
-                text-red-600
-                transition-colors
-                hover:bg-red-500/10
-                disabled:cursor-not-allowed
-                disabled:opacity-50
-              "
-            >
-              Ban Commenter
-            </button>
-          )}
+          {canModerateAll &&
+            !comment.is_admin && (
+              <button
+                type="button"
+                onClick={onBan}
+                disabled={loading}
+                className="
+                  rounded-lg
+                  border
+                  border-red-500/30
+                  px-4
+                  py-2
+                  text-sm
+                  font-medium
+                  text-red-600
+                  transition-colors
+                  hover:bg-red-500/10
+                  disabled:cursor-not-allowed
+                  disabled:opacity-50
+                "
+              >
+                Ban Commenter
+              </button>
+            )}
 
 
           {/* ==================================================
               EDIT ADMIN REPLY
           =================================================== */}
 
-          {comment.is_admin && (
+          {comment.is_admin && canModerateAll && (
             <button
               type="button"
               onClick={onEdit}
@@ -881,27 +886,29 @@ function CommentCard({
 
           {/* Delete */}
 
-          <button
-            type="button"
-            onClick={onDelete}
-            disabled={loading}
-            className="
-              rounded-lg
-              border
-              border-red-500/30
-              px-4
-              py-2
-              text-sm
-              font-medium
-              text-red-600
-              transition-colors
-              hover:bg-red-500/10
-              disabled:cursor-not-allowed
-              disabled:opacity-50
-            "
-          >
-            Delete
-          </button>
+          {canModerateAll && (
+            <button
+              type="button"
+              onClick={onDelete}
+              disabled={loading}
+              className="
+                rounded-lg
+                border
+                border-red-500/30
+                px-4
+                py-2
+                text-sm
+                font-medium
+                text-red-600
+                transition-colors
+                hover:bg-red-500/10
+                disabled:cursor-not-allowed
+                disabled:opacity-50
+              "
+            >
+              Delete
+            </button>
+          )}
 
 
           {/* Reply */}

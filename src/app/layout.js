@@ -53,7 +53,7 @@ export default function RootLayout({ children }) {
         className={cx(
           inter.variable,
           manrope.variable,
-          "font-mr bg-light text-foreground antialiased"
+              "font-mr bg-light text-dark antialiased dark:bg-dark dark:text-[#f5f5f3]"
         )}
       >
         <DisclaimerGate>

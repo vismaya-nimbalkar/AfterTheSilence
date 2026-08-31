@@ -75,16 +75,13 @@ const FootnoteReference = Node.create({
     return [
       "sup",
       {
-        "data-footnote-id":
-          HTMLAttributes.id,
+        "data-footnote-id": HTMLAttributes.id,
 
         class:
           "cursor-default select-none font-semibold align-super text-[0.7em] leading-none",
       },
 
-      String(
-        HTMLAttributes.number || 1
-      ),
+      String(HTMLAttributes.number || 1),
     ];
   },
 
@@ -104,11 +101,8 @@ const FootnoteReference = Node.create({
 /* ============================================================
    TOOLBAR BUTTON
 
-   IMPORTANT:
-   Formatting is executed on mouseDown.
-
-   This prevents the browser from moving focus away from
-   the editor before Tiptap receives the formatting command.
+   Formatting is executed on mouseDown so the browser does not
+   steal the editor selection before Tiptap receives the command.
 ============================================================ */
 
 function ToolbarButton({
@@ -353,6 +347,22 @@ export default function RichTextEditor({
   const lastLoadedValueRef =
     useRef(null);
 
+  /*
+   * Used only when the user creates a link without selecting
+   * existing text.
+   *
+   * Example:
+   *
+   * Click Link
+   * Enter https://example.com
+   * Type "Example"
+   * Press Space
+   *
+   * The link automatically ends after the space.
+   */
+  const pendingLinkRef =
+    useRef(false);
+
   const [, forceEditorUpdate] =
     useState(0);
 
@@ -564,13 +574,6 @@ export default function RichTextEditor({
 
   /* ==========================================================
      EMIT CONTENT
-
-     This DOES NOT cause the editor to reload.
-
-     The parent may update "value" on every keystroke,
-     but the editor-loading effect below checks whether
-     the incoming content is actually different before
-     calling setContent().
   ========================================================== */
 
   const emitChange = (
@@ -616,13 +619,17 @@ export default function RichTextEditor({
       }),
 
       /*
-       * IMPORTANT:
-       * inclusive: false means typing after a linked
-       * selection will NOT keep extending the link.
+       * LINK BEHAVIOR
+       *
+       * autolink is disabled so URLs typed into the editor
+       * do not automatically become links.
+       *
+       * inclusive: false prevents normal typing after an
+       * existing linked selection from inheriting the link.
        */
       Link.configure({
         openOnClick: false,
-        autolink: true,
+        autolink: false,
         defaultProtocol: "https",
         inclusive: false,
       }),
@@ -640,12 +647,6 @@ export default function RichTextEditor({
       FootnoteReference,
     ],
 
-    /*
-     * The initial value is loaded here.
-     *
-     * After that, the editor is NOT blindly reset
-     * every time the parent changes "value".
-     */
     content:
       parseContent(value),
 
@@ -653,6 +654,70 @@ export default function RichTextEditor({
       attributes: {
         class:
           "prose prose-neutral max-w-none min-h-[650px] px-6 py-5 outline-none prose-headings:font-semibold prose-p:leading-7 prose-blockquote:border-l-2 prose-blockquote:border-dark/30 prose-blockquote:pl-5 prose-blockquote:italic prose-a:underline prose-a:underline-offset-2",
+      },
+
+      /*
+       * Keyboard handling for manually-created links.
+       *
+       * If the user clicked Link with no selection, entered
+       * a URL, and started typing:
+       *
+       * "this is linked text"
+       *
+       * pressing Space after the text ends the link.
+       */
+      handleKeyDown: (view, event) => {
+        if (
+          event.key !== " " &&
+          event.key !== "Enter"
+        ) {
+          return false;
+        }
+
+        if (
+          !pendingLinkRef.current
+        ) {
+          return false;
+        }
+
+        const currentEditor =
+          editor;
+
+        if (!currentEditor) {
+          return false;
+        }
+
+        if (
+          !currentEditor.isActive(
+            "link"
+          )
+        ) {
+          pendingLinkRef.current =
+            false;
+
+          return false;
+        }
+
+        /*
+         * Remove the link mark BEFORE inserting the space.
+         *
+         * This means the space itself and everything after it
+         * will be normal text.
+         */
+        currentEditor
+          .chain()
+          .focus()
+          .unsetLink()
+          .run();
+
+        pendingLinkRef.current =
+          false;
+
+        /*
+         * Let the original key event continue so the
+         * space/Enter is still inserted normally.
+         */
+        return false;
       },
     },
 
@@ -722,41 +787,13 @@ export default function RichTextEditor({
 
   /* ==========================================================
      LOAD / SYNCHRONIZE EXISTING CONTENT
-
-     THIS IS THE IMPORTANT FIX.
-
-     Previously:
-
-       [editor, value]
-
-     caused setContent() to run after EVERY keystroke.
-
-     Now we only replace the editor content if the
-     incoming document is genuinely different from
-     what is already inside Tiptap.
-
-     This means:
-
-       click Heading 1
-       type "Hello"
-
-     stays:
-
-       <H1>Hello</H1>
-
-     instead of resetting the cursor/selection.
   ========================================================== */
 
   useEffect(() => {
-    if (!editor) {
-      return;
-    }
-
-    /*
-     * No external value:
-     * Nothing to synchronize.
-     */
-    if (!value) {
+    if (
+      !editor ||
+      !value
+    ) {
       return;
     }
 
@@ -797,12 +834,8 @@ export default function RichTextEditor({
       /*
        * Compare the actual document JSON.
        *
-       * If the parent merely gave us the value that
-       * WE just emitted, this comparison is equal and
-       * we do nothing.
-       *
-       * That is what prevents the cursor from being
-       * destroyed on every keystroke.
+       * This prevents setContent() from running after every
+       * keystroke and destroying the cursor/selection.
        */
       const currentDocument =
         editor.getJSON();
@@ -822,8 +855,8 @@ export default function RichTextEditor({
         incomingDocumentString;
 
       /*
-       * Only call setContent when the actual document
-       * changed externally.
+       * Only replace the editor content when the incoming
+       * document is genuinely different.
        */
       if (documentIsDifferent) {
         syncingRef.current =
@@ -841,8 +874,7 @@ export default function RichTextEditor({
       }
 
       /*
-       * Synchronize footnotes without resetting the
-       * editor whenever the parent rerenders.
+       * Synchronize footnotes without resetting the editor.
        */
       const unique = [];
       const seen = new Set();
@@ -1123,10 +1155,20 @@ export default function RichTextEditor({
       return;
     }
 
+    /*
+     * If the cursor is currently inside a link,
+     * use that link's URL as the default value.
+     */
     const previousUrl =
       editor.getAttributes(
         "link"
       ).href || "";
+
+    const selection =
+      editor.state.selection;
+
+    const hasSelection =
+      !selection.empty;
 
     const url =
       window.prompt(
@@ -1138,10 +1180,16 @@ export default function RichTextEditor({
       return;
     }
 
+    const trimmedUrl =
+      url.trim();
+
     /*
-     * Empty URL = remove link.
+     * Empty URL = remove the current link.
      */
-    if (!url.trim()) {
+    if (!trimmedUrl) {
+      pendingLinkRef.current =
+        false;
+
       editor
         .chain()
         .focus()
@@ -1155,7 +1203,7 @@ export default function RichTextEditor({
     }
 
     let finalUrl =
-      url.trim();
+      trimmedUrl;
 
     if (
       !finalUrl.startsWith(
@@ -1172,12 +1220,45 @@ export default function RichTextEditor({
         `https://${finalUrl}`;
     }
 
+    /*
+     * CASE 1:
+     *
+     * Text is selected.
+     *
+     * Only the selected text gets linked.
+     */
+    if (hasSelection) {
+      pendingLinkRef.current =
+        false;
+
+      editor
+        .chain()
+        .focus()
+        .setLink({
+          href: finalUrl,
+        })
+        .run();
+
+      return;
+    }
+
+    /*
+     * CASE 2:
+     *
+     * No text is selected.
+     *
+     * Put the cursor into a link mark so the user can
+     * immediately type the linked text.
+     *
+     * The handleKeyDown above will automatically remove
+     * the link when Space or Enter is pressed.
+     */
+    pendingLinkRef.current =
+      true;
+
     editor
       .chain()
       .focus()
-      .extendMarkRange(
-        "link"
-      )
       .setLink({
         href: finalUrl,
       })
@@ -2357,6 +2438,216 @@ function htmlToPlainText(
   );
 }
 
+function markdownToDoc(
+  value
+) {
+  const raw =
+    String(value || "")
+      .replace(/\r\n/g, "\n")
+      .trim();
+
+  if (!raw) {
+    return null;
+  }
+
+  const lines = raw.split("\n");
+  const blocks = [];
+  let paragraphLines = [];
+  let bulletList = null;
+  let orderedList = null;
+
+  const flushParagraph = () => {
+    if (
+      paragraphLines.length === 0
+    ) {
+      return;
+    }
+
+    blocks.push({
+      type: "paragraph",
+      content: [
+        {
+          type: "text",
+          text: paragraphLines
+            .join(" ")
+            .trim(),
+        },
+      ],
+    });
+
+    paragraphLines = [];
+  };
+
+  const flushList = () => {
+    if (bulletList) {
+      blocks.push(bulletList);
+      bulletList = null;
+    }
+
+    if (orderedList) {
+      blocks.push(orderedList);
+      orderedList = null;
+    }
+  };
+
+  for (const rawLine of lines) {
+    const line = rawLine.trim();
+
+    if (!line) {
+      flushParagraph();
+      flushList();
+      continue;
+    }
+
+    const headingMatch =
+      line.match(/^(#{1,6})\s+(.*)$/);
+
+    if (headingMatch) {
+      flushParagraph();
+      flushList();
+
+      blocks.push({
+        type: "heading",
+        attrs: {
+          level: Math.min(
+            headingMatch[1].length,
+            3
+          ),
+        },
+        content: [
+          {
+            type: "text",
+            text: headingMatch[2].trim(),
+          },
+        ],
+      });
+
+      continue;
+    }
+
+    const imageMatch =
+      line.match(
+        /^!\[([^\]]*)\]\(([^)]+)\)$/
+      );
+
+    if (imageMatch) {
+      flushParagraph();
+      flushList();
+
+      blocks.push({
+        type: "image",
+        attrs: {
+          src: imageMatch[2],
+          alt: imageMatch[1] || "Blog image",
+        },
+      });
+
+      continue;
+    }
+
+    const quoteMatch =
+      line.match(/^>\s+(.*)$/);
+
+    if (quoteMatch) {
+      flushParagraph();
+      flushList();
+
+      blocks.push({
+        type: "blockquote",
+        content: [
+          {
+            type: "paragraph",
+            content: [
+              {
+                type: "text",
+                text: quoteMatch[1],
+              },
+            ],
+          },
+        ],
+      });
+
+      continue;
+    }
+
+    const bulletMatch =
+      line.match(/^[-*]\s+(.*)$/);
+
+    if (bulletMatch) {
+      flushParagraph();
+
+      if (!bulletList) {
+        bulletList = {
+          type: "bulletList",
+          content: [],
+        };
+      }
+
+      bulletList.content.push({
+        type: "listItem",
+        content: [
+          {
+            type: "paragraph",
+            content: [
+              {
+                type: "text",
+                text: bulletMatch[1],
+              },
+            ],
+          },
+        ],
+      });
+
+      continue;
+    }
+
+    const orderedMatch =
+      line.match(/^\d+\.\s+(.*)$/);
+
+    if (orderedMatch) {
+      flushParagraph();
+
+      if (!orderedList) {
+        orderedList = {
+          type: "orderedList",
+          content: [],
+        };
+      }
+
+      orderedList.content.push({
+        type: "listItem",
+        content: [
+          {
+            type: "paragraph",
+            content: [
+              {
+                type: "text",
+                text: orderedMatch[1],
+              },
+            ],
+          },
+        ],
+      });
+
+      continue;
+    }
+
+    paragraphLines.push(line);
+  }
+
+  flushParagraph();
+  flushList();
+
+  if (blocks.length === 0) {
+    return null;
+  }
+
+  return {
+    type: "doc",
+    content: blocks,
+  };
+}
+
 function parseContent(
   value
 ) {
@@ -2381,9 +2672,29 @@ function parseContent(
     ) {
       return parsed;
     }
-
-    return "";
   } catch {
-    return "";
+    // Legacy markdown fallback below.
   }
+
+  const legacyDocument =
+    markdownToDoc(value);
+
+  if (legacyDocument) {
+    return legacyDocument;
+  }
+
+  return {
+    type: "doc",
+    content: [
+      {
+        type: "paragraph",
+        content: [
+          {
+            type: "text",
+            text: String(value).trim(),
+          },
+        ],
+      },
+    ],
+  };
 }

@@ -44,6 +44,7 @@ const HomeCoverSection = ({ blogs }) => {
           relative
           h-[60vh]
           sm:h-[85vh]
+          home-image-frame
         "
       >
 
