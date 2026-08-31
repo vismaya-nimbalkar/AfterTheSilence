@@ -20,10 +20,10 @@ export function useThemeSwitch() {
     if (userPref) {
       return userPref;
     }
-    return window.matchMedia(preferDarkQuery).matches ? "dark" : "light";
+    return "light";
   };
 
-  const [mode, setMode] = useState("dark");
+  const [mode, setMode] = useState("light");
 
   useEffect(() => {
     const mediaQuery = window.matchMedia(preferDarkQuery);

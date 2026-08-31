@@ -45,6 +45,7 @@ const HomeCoverSection = ({ blogs }) => {
           h-[60vh]
           sm:h-[85vh]
           home-image-frame
+          rounded-3xl
         "
       >
 
