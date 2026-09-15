@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
+import { getUserRole } from "@/src/lib/admin/permissions";
 
 export async function middleware(request) {
   let response = NextResponse.next({
@@ -43,6 +44,9 @@ export async function middleware(request) {
 
   const isMFARoute =
     pathname === "/admin/login/mfa";
+
+  const isSecurityRoute =
+    pathname === "/admin/security";
 
   // ------------------------------------------------------------
   // NOT AN ADMIN ROUTE
@@ -118,6 +122,23 @@ export async function middleware(request) {
   const mfaRequired =
     nextLevel === "aal2" &&
     currentLevel !== "aal2";
+
+  const securitySetupRequired =
+    getUserRole(user) === "editor" &&
+    user.user_metadata?.security_reset_required === true;
+
+  if (securitySetupRequired) {
+    if (isSecurityRoute) {
+      return response;
+    }
+
+    return NextResponse.redirect(
+      new URL(
+        "/admin/security",
+        request.url
+      )
+    );
+  }
 
   // ------------------------------------------------------------
   // USER NEEDS MFA

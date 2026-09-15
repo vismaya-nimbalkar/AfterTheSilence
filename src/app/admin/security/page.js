@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { createClient } from "@/src/lib/supabase/client";
 import { getUserRole } from "@/src/lib/admin/permissions";
+import LogoutButton from "@/src/components/Admin/LogoutButton";
 
 export default function AdminSecurityPage() {
   const router = useRouter();
@@ -17,6 +18,8 @@ export default function AdminSecurityPage() {
   const [loading, setLoading] = useState(true);
   const [authorized, setAuthorized] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [forcedSecuritySetup, setForcedSecuritySetup] = useState(false);
+  const [passwordChanged, setPasswordChanged] = useState(true);
   const [error, setError] = useState("");
 
   // ============================================================
@@ -50,6 +53,19 @@ export default function AdminSecurityPage() {
   const [passkeys, setPasskeys] = useState([]);
   const [passkeyLoading, setPasskeyLoading] = useState(false);
   const [passkeyMessage, setPasskeyMessage] = useState("");
+
+  const finishForcedSecuritySetup = async () => {
+    const { error: refreshError } = await supabase.auth.refreshSession();
+
+    if (refreshError) {
+      throw refreshError;
+    }
+
+    setForcedSecuritySetup(false);
+    setMfaMessage("Security setup is complete. Your editor account is unlocked.");
+    router.replace("/admin");
+    router.refresh();
+  };
 
   // ============================================================
   // LOAD PASSKEYS
@@ -109,7 +125,14 @@ export default function AdminSecurityPage() {
         }
 
         setAuthorized(true);
-        setIsAdmin(getUserRole(user) === "admin");
+        const userIsAdmin = getUserRole(user) === "admin";
+        const forcedSetup =
+          !userIsAdmin && user.user_metadata?.security_reset_required === true;
+        setIsAdmin(userIsAdmin);
+        setForcedSecuritySetup(forcedSetup);
+        setPasswordChanged(
+          !forcedSetup || user.user_metadata?.security_password_changed === true
+        );
 
         // ======================================================
         // LOAD MFA FACTORS
@@ -135,6 +158,14 @@ export default function AdminSecurityPage() {
           setMfaFactorId(
             verifiedTotp[0].id
           );
+
+          if (!user.user_metadata?.security_mfa_enabled) {
+            await fetch("/api/editor/security", {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ step: "mfa" }),
+            });
+          }
         } else {
           setMfaEnabled(false);
           setMfaFactorId("");
@@ -243,6 +274,43 @@ export default function AdminSecurityPage() {
 
       setNewPassword("");
       setConfirmPassword("");
+
+      if (forcedSecuritySetup) {
+        const response = await fetch("/api/editor/security", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ step: "password" }),
+        });
+        const result = await response.json();
+
+        if (!response.ok) {
+          throw new Error(result.error || "Could not record the password change.");
+        }
+
+        setPasswordChanged(true);
+        setPasswordMessage(
+          "Password changed. Enable two-factor authentication below to unlock your account."
+        );
+
+        if (mfaEnabled) {
+          const completionResponse = await fetch("/api/editor/security", {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ step: "complete" }),
+          });
+          const completionResult = await completionResponse.json();
+
+          if (!completionResponse.ok) {
+            throw new Error(
+              completionResult.error || "Could not complete security setup."
+            );
+          }
+
+          await finishForcedSecuritySetup();
+        }
+
+        return;
+      }
 
       setPasswordMessage(
         "Your password has been changed. Please sign in again with your new password."
@@ -490,6 +558,27 @@ export default function AdminSecurityPage() {
       setMfaEnabled(true);
       setShowMFASetup(false);
 
+      await fetch("/api/editor/security", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ step: "mfa" }),
+      });
+
+      if (forcedSecuritySetup) {
+        const response = await fetch("/api/editor/security", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ step: "complete" }),
+        });
+        const result = await response.json();
+
+        if (!response.ok) {
+          throw new Error(result.error || "Could not complete security setup.");
+        }
+
+        await finishForcedSecuritySetup();
+      }
+
       setMfaCode("");
       setQrCode("");
       setSecret("");
@@ -596,6 +685,19 @@ export default function AdminSecurityPage() {
 
       if (error) {
         throw error;
+      }
+
+      const syncResponse = await fetch("/api/editor/security", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ step: "mfa", enabled: false }),
+      });
+
+      if (!syncResponse.ok) {
+        const syncResult = await syncResponse.json();
+        throw new Error(
+          syncResult.error || "Could not update the two-factor status."
+        );
       }
 
       setMfaEnabled(false);
@@ -848,6 +950,15 @@ export default function AdminSecurityPage() {
             your {isAdmin ? "admin" : "editor"} account.
           </p>
 
+          {forcedSecuritySetup && (
+            <div className="mt-6 flex flex-col gap-4 rounded-xl border border-amber-500/40 bg-amber-500/10 p-4 text-sm text-amber-900 sm:flex-row sm:items-center sm:justify-between">
+              <p>
+                Your administrator requires you to change your password and enable two-factor authentication before you can access the editor panel.
+              </p>
+              <LogoutButton />
+            </div>
+          )}
+
         </div>
 
         {/* ERROR */}
@@ -916,9 +1027,10 @@ export default function AdminSecurityPage() {
 
             <p className="mt-2 text-sm leading-6 opacity-60">
               Choose a new password for your
-              {isAdmin ? "admin" : "editor"} account. You will be signed
-              out after changing it and will need
-              to sign in again.
+              {isAdmin ? "admin" : "editor"} account.
+              {forcedSecuritySetup
+                ? " You will remain signed in while you finish the required 2FA setup."
+                : " You will be signed out after changing it and will need to sign in again."}
             </p>
 
           </div>

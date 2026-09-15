@@ -36,6 +36,12 @@ export default function EditorLoginPage() {
       return;
     }
 
+    await fetch("/api/editor/security", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ step: "mfa" }),
+    });
+
     router.replace("/admin");
     router.refresh();
   };

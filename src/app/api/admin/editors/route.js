@@ -39,7 +39,22 @@ export async function GET() {
       );
     }
 
-    return NextResponse.json({ editors: data || [] });
+    const editors = await Promise.all(
+      (data || []).map(async (editor) => {
+        const { data: authUser } = await supabaseAdmin.auth.admin.getUserById(
+          editor.user_id
+        );
+        const metadata = authUser?.user?.user_metadata || {};
+
+        return {
+          ...editor,
+          mfaEnabled: metadata.security_mfa_enabled === true,
+          securitySetupRequired: metadata.security_reset_required === true,
+        };
+      })
+    );
+
+    return NextResponse.json({ editors });
   } catch (error) {
     console.error("Editor accounts GET error:", error);
     return NextResponse.json(
@@ -120,6 +135,89 @@ export async function POST(request) {
     console.error("Editor accounts POST error:", error);
     return NextResponse.json(
       { error: error?.message || "Could not create editor account." },
+      { status: 500 }
+    );
+  }
+}
+
+export async function PATCH(request) {
+  try {
+    const { response } = await requireAdmin();
+
+    if (response) {
+      return response;
+    }
+
+    const { id, requiresMFA = true } = await request.json();
+
+    if (!id) {
+      return NextResponse.json(
+        { error: "Editor ID is required." },
+        { status: 400 }
+      );
+    }
+
+    const supabaseAdmin = createAdminClient();
+    const { data: editor, error: lookupError } = await supabaseAdmin
+      .from("editor_accounts")
+      .select("user_id")
+      .eq("id", id)
+      .maybeSingle();
+
+    if (lookupError) {
+      return NextResponse.json(
+        { error: lookupError.message || "Could not find editor account." },
+        { status: 500 }
+      );
+    }
+
+    if (!editor) {
+      return NextResponse.json(
+        { error: "Editor account not found." },
+        { status: 404 }
+      );
+    }
+
+    const { data: authUser, error: authUserError } =
+      await supabaseAdmin.auth.admin.getUserById(editor.user_id);
+
+    if (authUserError) {
+      return NextResponse.json(
+        { error: authUserError.message || "Could not load editor account." },
+        { status: 500 }
+      );
+    }
+
+    if (authUser?.user?.user_metadata?.security_reset_required === true) {
+      return NextResponse.json(
+        { error: "A security request is already pending for this editor." },
+        { status: 409 }
+      );
+    }
+
+    const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
+      editor.user_id,
+      {
+        user_metadata: {
+          security_mfa_required: requiresMFA,
+          security_reset_required: true,
+          security_password_changed: false,
+        },
+      }
+    );
+
+    if (updateError) {
+      return NextResponse.json(
+        { error: updateError.message || "Could not require security setup." },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error("Editor security reset error:", error);
+    return NextResponse.json(
+      { error: error?.message || "Could not require security setup." },
       { status: 500 }
     );
   }

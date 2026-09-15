@@ -12,6 +12,7 @@ export default function EditorsPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
+  const [requiringSecurityId, setRequiringSecurityId] = useState(null);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [isAdmin, setIsAdmin] = useState(false);
@@ -25,31 +26,11 @@ export default function EditorsPage() {
   useEffect(() => {
     let mounted = true;
 
-    const load = async () => {
+    const loadEditors = async () => {
       try {
-        const {
-          data: { user },
-          error: userError,
-        } = await supabase.auth.getUser();
-
-        if (!user || userError) {
-          router.replace("/forbidden");
-          return;
-        }
-
-        const role = getUserRole(user);
-        const adminAccess = role === "admin";
-
-        if (mounted) {
-          setIsAdmin(adminAccess);
-        }
-
-        if (!adminAccess) {
-          router.replace("/forbidden");
-          return;
-        }
-
-        const response = await fetch("/api/admin/editors");
+        const response = await fetch("/api/admin/editors", {
+          cache: "no-store",
+        });
         const result = await response.json();
 
         if (!response.ok) {
@@ -65,16 +46,51 @@ export default function EditorsPage() {
           setError(err?.message || "Could not load editor accounts.");
         }
       } finally {
-        if (mounted) {
-          setLoading(false);
+        if (mounted) setLoading(false);
+      }
+    };
+
+    const load = async () => {
+      try {
+        const {
+          data: { user },
+          error: userError,
+        } = await supabase.auth.getUser();
+
+        if (!user || userError) {
+          router.replace("/forbidden");
+          return;
         }
+
+        const adminAccess = getUserRole(user) === "admin";
+        if (mounted) setIsAdmin(adminAccess);
+
+        if (!adminAccess) {
+          router.replace("/forbidden");
+          return;
+        }
+
+        await loadEditors();
+      } catch (err) {
+        console.error(err);
+        if (mounted) setError(err?.message || "Could not load editor accounts.");
+      }
+    };
+
+    const refreshEditors = () => {
+      if (document.visibilityState === "visible") {
+        loadEditors();
       }
     };
 
     load();
+    window.addEventListener("focus", refreshEditors);
+    const refreshInterval = window.setInterval(refreshEditors, 5000);
 
     return () => {
       mounted = false;
+      window.removeEventListener("focus", refreshEditors);
+      window.clearInterval(refreshInterval);
     };
   }, [router, supabase]);
 
@@ -159,6 +175,52 @@ export default function EditorsPage() {
       setError(err?.message || "Could not delete editor account.");
     } finally {
       setDeletingId(null);
+    }
+  };
+
+  const handleRequireSecurity = async (editor) => {
+    if (!editor?.id) {
+      return;
+    }
+
+    const requiresMFA = !editor.mfaEnabled;
+
+    if (!window.confirm(
+      requiresMFA
+        ? `Require ${editor.email} to change their password and enable 2FA before continuing?`
+        : `Require ${editor.email} to change their password before continuing?`
+    )) {
+      return;
+    }
+
+    setRequiringSecurityId(editor.id);
+    setError("");
+    setMessage("");
+
+    try {
+      const response = await fetch("/api/admin/editors", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ id: editor.id, requiresMFA }),
+      });
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || "Could not require security setup.");
+      }
+
+      setMessage(
+        requiresMFA
+          ? `${editor.email} must now change their password and enable 2FA before accessing the admin panel.`
+          : `${editor.email} must now change their password before accessing the admin panel. 2FA is already enabled.`
+      );
+    } catch (err) {
+      console.error(err);
+      setError(err?.message || "Could not require security setup.");
+    } finally {
+      setRequiringSecurityId(null);
     }
   };
 
@@ -262,7 +324,29 @@ export default function EditorsPage() {
                       <div>
                         <p className="font-medium">{editor.name || editor.email}</p>
                         <p className="mt-1 text-sm opacity-60">{editor.email}</p>
+                        <p className="mt-2 text-xs text-green-700">
+                          {editor.mfaEnabled
+                            ? "2FA enabled"
+                            : "2FA not enabled"}
+                        </p>
                       </div>
+                      <button
+                        type="button"
+                        onClick={() => handleRequireSecurity(editor)}
+                        disabled={
+                          requiringSecurityId === editor.id ||
+                          editor.securitySetupRequired
+                        }
+                        className="text-sm text-amber-700 hover:opacity-70 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        {editor.securitySetupRequired
+                          ? "Security request pending"
+                          : requiringSecurityId === editor.id
+                          ? "Requiring..."
+                          : editor.mfaEnabled
+                          ? "Require password change"
+                          : "Require password + 2FA"}
+                      </button>
                       <button
                         type="button"
                         onClick={() => handleDeleteEditor(editor)}
