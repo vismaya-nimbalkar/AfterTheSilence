@@ -363,6 +363,15 @@ export default function RichTextEditor({
   const pendingLinkRef =
     useRef(false);
 
+  const linkSelectionRef =
+    useRef(null);
+
+  const [linkDialogOpen, setLinkDialogOpen] =
+    useState(false);
+
+  const [linkUrl, setLinkUrl] =
+    useState("");
+
   const [, forceEditorUpdate] =
     useState(0);
 
@@ -1164,24 +1173,33 @@ export default function RichTextEditor({
         "link"
       ).href || "";
 
-    const selection =
-      editor.state.selection;
+    linkSelectionRef.current = {
+      from: editor.state.selection.from,
+      to: editor.state.selection.to,
+    };
+    setLinkUrl(previousUrl);
+    setLinkDialogOpen(true);
+  };
 
-    const hasSelection =
-      !selection.empty;
-
-    const url =
-      window.prompt(
-        "Enter the URL:",
-        previousUrl
-      );
-
-    if (url === null) {
+  const applyLink = () => {
+    if (!editor) {
       return;
     }
 
+    const selection =
+      linkSelectionRef.current || editor.state.selection;
+
+    const hasSelection =
+      selection.from !== selection.to;
+
     const trimmedUrl =
-      url.trim();
+      linkUrl.trim();
+
+    editor
+      .chain()
+      .focus()
+      .setTextSelection(selection)
+      .run();
 
     /*
      * Empty URL = remove the current link.
@@ -1198,7 +1216,8 @@ export default function RichTextEditor({
         )
         .unsetLink()
         .run();
-
+      setLinkDialogOpen(false);
+      linkSelectionRef.current = null;
       return;
     }
 
@@ -1234,11 +1253,13 @@ export default function RichTextEditor({
       editor
         .chain()
         .focus()
+        .setTextSelection(selection)
         .setLink({
           href: finalUrl,
         })
         .run();
-
+      setLinkDialogOpen(false);
+      linkSelectionRef.current = null;
       return;
     }
 
@@ -1259,10 +1280,14 @@ export default function RichTextEditor({
     editor
       .chain()
       .focus()
+      .setTextSelection(selection)
       .setLink({
         href: finalUrl,
       })
       .run();
+
+    setLinkDialogOpen(false);
+    linkSelectionRef.current = null;
   };
 
   /* ==========================================================
@@ -2126,18 +2151,67 @@ export default function RichTextEditor({
 
         <ToolbarDivider />
 
-        <ToolbarButton
-          onClick={addLink}
-          active={editor.isActive(
-            "link"
+        <div className="relative">
+          <ToolbarButton
+            onClick={addLink}
+            active={editor.isActive(
+              "link"
+            )}
+            title="Add link"
+          >
+            <LinkIcon
+              size={17}
+              strokeWidth={1.8}
+            />
+          </ToolbarButton>
+
+          {linkDialogOpen && (
+            <div className="absolute left-0 top-full z-30 mt-2 w-80 rounded-xl border border-dark/20 bg-light p-4 shadow-xl dark:bg-dark">
+              <label className="block text-xs font-semibold uppercase tracking-[0.14em] opacity-60" htmlFor="editor-link-url">
+                Link URL
+              </label>
+              <input
+                id="editor-link-url"
+                autoFocus
+                type="url"
+                value={linkUrl}
+                onChange={(event) => setLinkUrl(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.preventDefault();
+                    applyLink();
+                  }
+
+                  if (event.key === "Escape") {
+                    setLinkDialogOpen(false);
+                    linkSelectionRef.current = null;
+                  }
+                }}
+                placeholder="https://example.com"
+                className="mt-2 w-full rounded-lg border border-dark/20 bg-transparent px-3 py-2 text-sm outline-none focus:border-dark/50"
+              />
+              <div className="mt-3 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setLinkDialogOpen(false);
+                    linkSelectionRef.current = null;
+                  }}
+                  className="rounded-lg px-3 py-2 text-sm opacity-60 hover:opacity-100"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={applyLink}
+                  className="rounded-lg bg-dark px-3 py-2 text-sm font-medium text-light hover:opacity-80 dark:bg-light dark:text-dark"
+                >
+                  Apply link
+                </button>
+              </div>
+            </div>
           )}
-          title="Add link"
-        >
-          <LinkIcon
-            size={17}
-            strokeWidth={1.8}
-          />
-        </ToolbarButton>
+        </div>
 
         <ToolbarButton
           onClick={addFootnote}

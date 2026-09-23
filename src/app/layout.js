@@ -6,6 +6,8 @@ import Header from "@/src/components/Header";
 import Footer from "../components/Footer";
 import DisclaimerGate from "../components/DisclaimerGate";
 import siteMetadata from "../utils/siteMetaData";
+import { createClient } from "@/src/lib/supabase/server";
+import { getTravelFeatureEnabled } from "@/src/lib/travelFeature";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -46,7 +48,10 @@ export const metadata = {
   },
 };
 
-export default function RootLayout({ children }) {
+export default async function RootLayout({ children }) {
+  const supabase = await createClient();
+  const travelEnabled = await getTravelFeatureEnabled(supabase);
+
   return (
     <html lang="en">
       <body
@@ -57,7 +62,7 @@ export default function RootLayout({ children }) {
         )}
       >
         <DisclaimerGate>
-          <Header />
+          <Header travelEnabled={travelEnabled} />
           {children}
           <Footer />
         </DisclaimerGate>

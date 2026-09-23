@@ -8,7 +8,7 @@ const QUICK_EXIT_URL = "https://www.google.com";
 import { MoonIcon, SunIcon } from "../Icons";
 import { useThemeSwitch } from "../Hooks/useThemeSwitch";
 
-const Header = () => {
+const Header = ({ travelEnabled = true }) => {
   const [click, setClick] = useState(false);
   const [mode, setMode] = useThemeSwitch();
 
@@ -262,6 +262,12 @@ const Header = () => {
           About
         </Link>
 
+        {travelEnabled && (
+          <Link href="/travel" className="mx-2" onClick={() => setClick(false)}>
+            Travel
+          </Link>
+        )}
+
         {/* Login */}
 
         <Link
@@ -368,6 +374,12 @@ const Header = () => {
         >
           About
         </Link>
+
+        {travelEnabled && (
+          <Link href="/travel" className="mx-2 hover:underline">
+            Travel
+          </Link>
+        )}
 
         {/* Login */}
 

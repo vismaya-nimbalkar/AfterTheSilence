@@ -182,6 +182,15 @@ export default async function AdminPage() {
               </Link>
             )}
 
+            {isAdmin && (
+              <Link
+                href="/admin/travel"
+                className="rounded-lg border border-dark px-5 py-3 text-center font-medium transition-opacity hover:opacity-70"
+              >
+                Travel
+              </Link>
+            )}
+
             {/* New Post */}
 
             <Link
