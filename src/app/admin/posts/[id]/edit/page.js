@@ -3,7 +3,9 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { createClient } from "@/src/lib/supabase/client";
+import { getUserRole } from "@/src/lib/admin/permissions";
 import RichTextEditor from "@/src/components/Admin/RichTextEditor";
+import PostAccessManager from "@/src/components/Admin/PostAccessManager";
 
 export default function EditPostPage() {
   const params = useParams();
@@ -24,6 +26,7 @@ export default function EditPostPage() {
   const [existingImageUrl, setExistingImageUrl] = useState("");
   const [imageLabel, setImageLabel] = useState("No cover image selected yet");
   const [isPublished, setIsPublished] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   const supabase = createClient();
 
@@ -38,14 +41,16 @@ export default function EditPostPage() {
         return;
       }
 
-      const { data: post, error } = await supabase
-        .from("posts")
-        .select("*")
-        .eq("id", params.id)
-        .single();
+      setIsAdmin(getUserRole(user) === "admin");
 
-      if (error || !post) {
-        setError("Post could not be found.");
+      const response = await fetch(`/api/admin/posts/${params.id}`, {
+        cache: "no-store",
+      });
+      const result = await response.json();
+      const post = result.post;
+
+      if (!response.ok || !post) {
+        setError(result.error || "Post could not be found.");
         setLoading(false);
         return;
       }
@@ -152,14 +157,16 @@ export default function EditPostPage() {
       updateData.published_at = new Date().toISOString();
     }
 
-    const { error } = await supabase
-      .from("posts")
-      .update(updateData)
-      .eq("id", params.id);
+    const response = await fetch(`/api/admin/posts/${params.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(updateData),
+    });
+    const result = await response.json().catch(() => ({}));
 
-    if (error) {
-      console.error(error);
-      setError("Could not save the post.");
+    if (!response.ok) {
+      console.error(result.error);
+      setError(result.error || "Could not save the post.");
       setSaving(false);
       return;
     }
@@ -266,6 +273,8 @@ export default function EditPostPage() {
               className="w-full rounded-lg border border-dark/20 bg-transparent px-4 py-3 outline-none"
             />
           </div>
+
+          {isAdmin && <PostAccessManager postId={params.id} />}
 
           <div className="rounded-2xl border border-dark/20 p-4">
             <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

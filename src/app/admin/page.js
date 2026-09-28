@@ -6,6 +6,7 @@ import LogoutButton from "@/src/components/Admin/LogoutButton";
 import CommentModeration from "@/src/components/Admin/CommentModeration";
 import BannedIPs from "@/src/components/Admin/BannedIPs";
 import { getUserRole } from "@/src/lib/admin/permissions";
+import { createAdminClient } from "@/src/lib/supabase/admin";
 
 export default async function AdminPage() {
   const supabase = await createClient();
@@ -38,7 +39,19 @@ export default async function AdminPage() {
     });
 
   if (!isAdmin) {
-    postsQuery = postsQuery.eq("author", user.email || "");
+    const supabaseAdmin = createAdminClient();
+    const { data: assignedPosts } = await supabaseAdmin
+      .from("post_editor_access")
+      .select("post_id")
+      .eq("editor_user_id", user.id);
+
+    const assignedPostIds = (assignedPosts || [])
+      .map((assignment) => assignment.post_id)
+      .filter(Boolean);
+
+    postsQuery = assignedPostIds.length
+      ? postsQuery.in("id", assignedPostIds)
+      : postsQuery.in("id", ["00000000-0000-0000-0000-000000000000"]);
   }
 
   const {
@@ -311,7 +324,7 @@ export default async function AdminPage() {
           {!commentsError && (
             <CommentModeration
               comments={comments || []}
-              canModerateAll={isAdmin}
+              canModerateAll
               role={role}
             />
           )}

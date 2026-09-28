@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/src/lib/supabase/client";
 
 export default function DeletePostButton({ postId }) {
   const router = useRouter();
@@ -17,16 +16,14 @@ export default function DeletePostButton({ postId }) {
 
     setDeleting(true);
 
-    const supabase = createClient();
+    const response = await fetch(`/api/admin/posts/${postId}`, {
+      method: "DELETE",
+    });
+    const result = await response.json().catch(() => ({}));
 
-    const { error } = await supabase
-      .from("posts")
-      .delete()
-      .eq("id", postId);
-
-    if (error) {
-      console.error(error);
-      alert("Could not delete the post.");
+    if (!response.ok) {
+      console.error(result.error);
+      alert(result.error || "Could not delete the post.");
       setDeleting(false);
       return;
     }

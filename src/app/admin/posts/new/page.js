@@ -1,9 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/src/lib/supabase/client";
+import { getUserRole } from "@/src/lib/admin/permissions";
 import RichTextEditor from "@/src/components/Admin/RichTextEditor";
+import PostAccessManager from "@/src/components/Admin/PostAccessManager";
 
 /* ============================================================
    SLUG
@@ -778,7 +780,7 @@ function FinalPostPreview({
 
 export default function NewPostPage() {
   const router = useRouter();
-  const supabase = createClient();
+  const [supabase] = useState(() => createClient());
 
   /* ==========================================================
      FORM STATE
@@ -802,6 +804,12 @@ export default function NewPostPage() {
   const [content, setContent] =
     useState("");
 
+  const [isAdmin, setIsAdmin] =
+    useState(false);
+
+  const [collaboratorIds, setCollaboratorIds] =
+    useState([]);
+
   /* ==========================================================
      IMAGE STATE
   ========================================================== */
@@ -824,6 +832,20 @@ export default function NewPostPage() {
 
   const [error, setError] =
     useState("");
+
+  useEffect(() => {
+    let mounted = true;
+
+    supabase.auth.getUser().then(({ data: userData }) => {
+      if (mounted && userData.user) {
+        setIsAdmin(getUserRole(userData.user) === "admin");
+      }
+    });
+
+    return () => {
+      mounted = false;
+    };
+  }, [supabase]);
 
   /* ==========================================================
      TITLE / SLUG
@@ -1040,51 +1062,25 @@ export default function NewPostPage() {
          CREATE POST
       ------------------------------------------------------ */
 
-      const {
-        error: insertError,
-      } =
-        await supabase
-          .from("posts")
-          .insert({
-            title:
-              title.trim(),
-
-            slug:
-              slug.trim(),
-
-            description:
-              description.trim(),
-
-            /*
-             * RichTextEditor stores the content as
-             * serialized Tiptap JSON.
-             */
-            content,
-
-            author:
-              author.trim() ||
-              userData.user.email,
-
-            tags: tagArray,
-
-            image_url:
-              publicUrl,
-
-            /* ------------------------------------------------
-               EXPLICIT ACTION
-            ------------------------------------------------ */
-
-            is_published:
-              publish,
-
-            published_at:
-              publish
-                ? now
-                : null,
-
-            updated_at:
-              now,
-          });
+      const createResponse = await fetch("/api/admin/posts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: title.trim(),
+          slug: slug.trim(),
+          description: description.trim(),
+          content,
+          author: author.trim() || userData.user.email,
+          tags: tagArray,
+          image_url: publicUrl,
+          is_published: publish,
+        }),
+      });
+      const createResult = await createResponse.json().catch(() => ({}));
+      const insertedPost = createResult.post;
+      const insertError = createResponse.ok
+        ? null
+        : { message: createResult.error, code: createResult.code };
 
       /* ------------------------------------------------------
          DATABASE ERROR
@@ -1112,6 +1108,23 @@ export default function NewPostPage() {
 
         setLoading(false);
 
+        return;
+      }
+
+      const accessResponses = await Promise.all(
+        collaboratorIds.map((editorUserId) =>
+          fetch(`/api/admin/posts/${insertedPost.id}/access`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ editorUserId }),
+          })
+        )
+      );
+
+      const failedAccess = accessResponses.find((response) => !response.ok);
+      if (failedAccess) {
+        setError("Post created, but collaborator access could not be saved.");
+        setLoading(false);
         return;
       }
 
@@ -1195,6 +1208,13 @@ export default function NewPostPage() {
             "
           >
             ← Back
+
+          {isAdmin && (
+            <PostAccessManager
+              selectedEditorIds={collaboratorIds}
+              onSelectionChange={setCollaboratorIds}
+            />
+          )}
           </button>
 
         </div>

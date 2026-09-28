@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/src/lib/supabase/server";
+import { createAdminClient } from "@/src/lib/supabase/admin";
 import { getUserRole } from "@/src/lib/admin/permissions";
 
 export async function POST(request, { params }) {
@@ -14,7 +15,7 @@ export async function POST(request, { params }) {
       data: { user },
     } = await supabase.auth.getUser();
 
-    if (!user || getUserRole(user) !== "admin") {
+    if (!user || !["admin", "editor"].includes(getUserRole(user))) {
       return NextResponse.json(
         {
           error: "Unauthorized.",
@@ -24,6 +25,8 @@ export async function POST(request, { params }) {
         }
       );
     }
+
+    const supabaseAdmin = createAdminClient();
 
     // ==========================================================
     // GET COMMENT ID
@@ -49,7 +52,7 @@ export async function POST(request, { params }) {
     const {
       data: comment,
       error: commentError,
-    } = await supabase
+    } = await supabaseAdmin
       .from("comments")
       .select("*")
       .eq("id", id)
@@ -107,7 +110,7 @@ export async function POST(request, { params }) {
     const {
       data: existingBan,
       error: existingBanError,
-    } = await supabase
+    } = await supabaseAdmin
       .from("comment_bans")
       .select("id")
       .eq(
@@ -143,7 +146,7 @@ export async function POST(request, { params }) {
 
     if (!existingBan) {
       const { error: banError } =
-        await supabase
+        await supabaseAdmin
           .from("comment_bans")
           .insert({
             ip_hash:
@@ -183,7 +186,7 @@ export async function POST(request, { params }) {
 
     const {
       error: rejectError,
-    } = await supabase
+    } = await supabaseAdmin
       .from("comments")
       .update({
         status: "rejected",

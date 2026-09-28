@@ -1,10 +1,10 @@
-/** @type {import('next').NextMode} */
+/** @type {import('next').NextConfig} */
 const nextConfig = {
   images: {
     remotePatterns: [
       {
         protocol: 'https',
-        hostname: 'https://wfswmeuevhuwzntzcpid.supabase.co',
+        hostname: 'wfswmeuevhuwzntzcpid.supabase.co',
         port: '',
         pathname: '/storage/v1/object/public/**',
       },
