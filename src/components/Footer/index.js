@@ -1,10 +1,12 @@
-"use client";
-
 import React from "react";
 import Link from "next/link";
 import NewsletterForm from "./NewsletterForm";
+import { createClient } from "@/src/lib/supabase/server";
+import { getSiteSettings } from "@/src/lib/siteSettings";
 
-const Footer = () => {
+const Footer = async () => {
+  const settings = await getSiteSettings(await createClient());
+
   return (
     <footer className="mt-16 rounded-2xl bg-dark dark:bg-[#fffbea] m-2 sm:m-10 flex flex-col items-center text-light dark:text-dark">
 
@@ -20,6 +22,21 @@ const Footer = () => {
       <NewsletterForm />
 
       {/* Footer Links */}
+      {(settings.contact_phone || settings.contact_email) && (
+        <div className="mt-8 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 px-6 text-sm font-medium">
+          {settings.contact_phone && (
+            <a href={`tel:${settings.contact_phone}`} className="opacity-80 transition-opacity hover:opacity-100 hover:underline">
+              {settings.contact_phone}
+            </a>
+          )}
+          {settings.contact_email && (
+            <a href={`mailto:${settings.contact_email}`} className="opacity-80 transition-opacity hover:opacity-100 hover:underline">
+              {settings.contact_email}
+            </a>
+          )}
+        </div>
+      )}
+
       <nav
         aria-label="Footer links"
         className="

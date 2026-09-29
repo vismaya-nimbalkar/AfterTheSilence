@@ -104,6 +104,7 @@ export default async function AdminPage() {
             flex-col
             gap-6
             sm:flex-row
+            sm:flex-nowrap
             sm:items-center
             sm:justify-between
           "
@@ -130,7 +131,7 @@ export default async function AdminPage() {
               HEADER ACTIONS
           ===================================================== */}
 
-          <div className="flex flex-col gap-3 sm:flex-row">
+          <div className="flex min-w-max flex-col gap-3 sm:flex-row sm:flex-nowrap">
 
             {/* Security */}
 
@@ -146,6 +147,7 @@ export default async function AdminPage() {
                 font-medium
                 transition-opacity
                 hover:opacity-70
+                whitespace-nowrap
               "
             >
               Security
@@ -167,6 +169,7 @@ export default async function AdminPage() {
                 font-medium
                 transition-opacity
                 hover:opacity-70
+                whitespace-nowrap
               "
               >
                 Newsletter
@@ -189,6 +192,7 @@ export default async function AdminPage() {
                   font-medium
                   transition-opacity
                   hover:opacity-70
+                  whitespace-nowrap
                 "
               >
                 Editors
@@ -198,9 +202,18 @@ export default async function AdminPage() {
             {isAdmin && (
               <Link
                 href="/admin/travel"
-                className="rounded-lg border border-dark px-5 py-3 text-center font-medium transition-opacity hover:opacity-70"
+                className="rounded-lg border border-dark px-5 py-3 text-center font-medium transition-opacity hover:opacity-70 whitespace-nowrap"
               >
                 Travel
+              </Link>
+            )}
+
+            {isAdmin && (
+              <Link
+                href="/admin/site-settings"
+                className="rounded-lg border border-dark px-5 py-3 text-center font-medium transition-opacity hover:opacity-70 whitespace-nowrap"
+              >
+                Site Settings
               </Link>
             )}
 
@@ -220,6 +233,7 @@ export default async function AdminPage() {
                 dark:text-dark
                 transition-opacity
                 hover:opacity-80
+                whitespace-nowrap
               "
             >
               + New Post

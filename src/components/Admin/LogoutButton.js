@@ -32,6 +32,8 @@ export default function LogoutButton() {
         py-2
         text-sm
         font-medium
+        text-center
+        whitespace-nowrap
         transition-colors
         hover:bg-dark
         hover:text-light
