@@ -6,19 +6,13 @@ import { createClient } from "@/src/lib/supabase/client";
 import { getUserRole } from "@/src/lib/admin/permissions";
 import RichTextEditor from "@/src/components/Admin/RichTextEditor";
 import PostAccessManager from "@/src/components/Admin/PostAccessManager";
+import { slugify } from "@/src/lib/forms";
 
 /* ============================================================
    SLUG
 ============================================================ */
 
-const generateSlug = (text) => {
-  return text
-    .toLowerCase()
-    .trim()
-    .replace(/[^\w\s-]/g, "")
-    .replace(/\s+/g, "-")
-    .replace(/-+/g, "-");
-};
+const generateSlug = slugify;
 
 /* ============================================================
    PREVIEW HELPERS
@@ -1289,9 +1283,7 @@ export default function NewPostPage() {
               type="text"
               value={slug}
               onChange={(event) =>
-                setSlug(
-                  event.target.value
-                )
+                setSlug(slugify(event.target.value))
               }
               placeholder="your-post-slug"
               className="

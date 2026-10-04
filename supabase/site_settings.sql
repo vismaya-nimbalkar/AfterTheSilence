@@ -17,7 +17,7 @@ begin
     select 1 from pg_policies
     where schemaname = 'public'
       and tablename = 'site_settings'
-      and policyname = 'Site settings are publicly readable'
+      and policyname = 'Site settings are publicly readable'f
   ) then
     create policy "Site settings are publicly readable"
       on public.site_settings for select

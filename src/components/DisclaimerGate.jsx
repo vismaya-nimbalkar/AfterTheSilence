@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 
 const DISCLAIMER_STORAGE_KEY = "afterTheSilenceDisclaimerAccepted";
 
 export default function DisclaimerGate({ children }) {
+  const pathname = usePathname();
   const [accepted, setAccepted] = useState(false);
   const [checked, setChecked] = useState(false);
   const [loaded, setLoaded] = useState(false);
@@ -50,13 +52,10 @@ export default function DisclaimerGate({ children }) {
     setAccepted(true);
   };
 
-  /*
-   * Don't render the gate until we've checked
-   * sessionStorage.
-   *
-   * This prevents the disclaimer from flashing
-   * briefly during page load for returning visitors.
-   */
+  if (pathname?.startsWith("/forms/")) {
+    return children;
+  }
+
   if (!loaded) {
     return null;
   }
@@ -70,15 +69,6 @@ export default function DisclaimerGate({ children }) {
 
   return (
     <>
-      {/* Website remains underneath but cannot be interacted with */}
-      <div
-        aria-hidden="true"
-        className="pointer-events-none select-none"
-      >
-        {children}
-      </div>
-
-      {/* Full-screen disclaimer gate */}
       <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-white p-4 dark:bg-dark sm:p-6">
 
         <div className="flex h-full max-h-[900px] w-full max-w-5xl flex-col rounded-2xl border border-black/10 bg-white text-dark shadow-2xl dark:border-light/20 dark:bg-[#f5f5f3] dark:text-dark">

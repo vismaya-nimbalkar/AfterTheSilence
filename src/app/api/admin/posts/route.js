@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/src/lib/supabase/server";
 import { createAdminClient } from "@/src/lib/supabase/admin";
 import { getUserRole } from "@/src/lib/admin/permissions";
+import { slugify } from "@/src/lib/forms";
 
 export async function POST(request) {
   try {
@@ -16,7 +17,7 @@ export async function POST(request) {
 
     const body = await request.json();
     const title = body.title?.trim();
-    const slug = body.slug?.trim();
+    const slug = slugify(body.slug);
 
     if (!title || !slug || !body.content?.trim()) {
       return NextResponse.json(

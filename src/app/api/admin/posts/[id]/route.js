@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/src/lib/supabase/server";
 import { createAdminClient } from "@/src/lib/supabase/admin";
 import { canManagePost } from "@/src/lib/admin/postAccess";
+import { slugify } from "@/src/lib/forms";
 
 async function getAuthorizedUser(postId) {
   const supabase = await createClient();
@@ -61,7 +62,7 @@ export async function PATCH(request, { params }) {
     const body = await request.json();
     const updateData = {
       title: body.title?.trim(),
-      slug: body.slug?.trim(),
+      slug: slugify(body.slug),
       description: body.description?.trim(),
       content: body.content,
       author: body.author?.trim(),
@@ -70,6 +71,10 @@ export async function PATCH(request, { params }) {
       is_published: Boolean(body.is_published),
       updated_at: new Date().toISOString(),
     };
+
+    if (!updateData.slug) {
+      return NextResponse.json({ error: "A valid slug is required." }, { status: 400 });
+    }
 
     if (updateData.is_published) {
       updateData.published_at = new Date().toISOString();

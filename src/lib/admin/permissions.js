@@ -3,16 +3,16 @@ export function getUserRole(user) {
     return "guest";
   }
 
-  const metadataRole = user.user_metadata?.role;
-
-  if (metadataRole === "admin" || metadataRole === "editor") {
-    return metadataRole;
-  }
-
   const appRole = user.app_metadata?.role;
 
   if (appRole === "admin" || appRole === "editor") {
     return appRole;
+  }
+
+  const metadataRole = user.user_metadata?.role;
+
+  if (metadataRole === "admin" || metadataRole === "editor") {
+    return metadataRole;
   }
 
   return "admin";

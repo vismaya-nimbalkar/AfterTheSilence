@@ -217,6 +217,15 @@ export default async function AdminPage() {
               </Link>
             )}
 
+            {isAdmin && (
+              <Link
+                href="/admin/forms"
+                className="rounded-lg border border-dark px-5 py-3 text-center font-medium transition-opacity hover:opacity-70 whitespace-nowrap"
+              >
+                Forms
+              </Link>
+            )}
+
             {/* New Post */}
 
             <Link

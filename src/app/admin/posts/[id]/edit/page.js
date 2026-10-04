@@ -6,6 +6,7 @@ import { createClient } from "@/src/lib/supabase/client";
 import { getUserRole } from "@/src/lib/admin/permissions";
 import RichTextEditor from "@/src/components/Admin/RichTextEditor";
 import PostAccessManager from "@/src/components/Admin/PostAccessManager";
+import { slugify } from "@/src/lib/forms";
 
 export default function EditPostPage() {
   const params = useParams();
@@ -227,7 +228,7 @@ export default function EditPostPage() {
 
             <input
               value={slug}
-              onChange={(e) => setSlug(e.target.value)}
+              onChange={(e) => setSlug(slugify(e.target.value))}
               className="w-full rounded-lg border border-dark/20 bg-transparent px-4 py-3 outline-none"
             />
 
