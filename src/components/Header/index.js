@@ -7,6 +7,7 @@ import { useState, useEffect, useCallback } from "react";
 const QUICK_EXIT_URL = "https://www.google.com";
 import { MoonIcon, SunIcon } from "../Icons";
 import { useThemeSwitch } from "../Hooks/useThemeSwitch";
+import LanguageSelector from "./LanguageSelector";
 
 const Header = ({ travelEnabled = true }) => {
   const [click, setClick] = useState(false);
@@ -209,6 +210,7 @@ const Header = ({ travelEnabled = true }) => {
             </span>
           </div>
         </button>
+
       </div>
 
       {/* =====================================================
@@ -284,21 +286,23 @@ const Header = ({ travelEnabled = true }) => {
           Login
         </Link>
 
+        <span
+          aria-hidden="true"
+          className="mx-3 h-6 w-px bg-dark/30 dark:bg-[#f5f5f3]/30"
+        />
+
+        <LanguageSelector id="site-language-mobile" />
+
         <button
           type="button"
-          onClick={() =>
-            setMode(mode === "dark" ? "light" : "dark")
-          }
+          onClick={() => setMode(mode === "dark" ? "light" : "dark")}
           className="rounded-full p-1 hover:opacity-70"
           aria-label={mode === "dark" ? "Switch to light mode" : "Switch to dark mode"}
           title={mode === "dark" ? "Switch to light mode" : "Switch to dark mode"}
         >
-          {mode === "dark" ? (
-            <SunIcon className="h-5 w-5" />
-          ) : (
-            <MoonIcon className="h-5 w-5" />
-          )}
+          {mode === "dark" ? <SunIcon className="h-5 w-5" /> : <MoonIcon className="h-5 w-5" />}
         </button>
+
       </nav>
 
       {/* =====================================================
@@ -336,6 +340,18 @@ const Header = ({ travelEnabled = true }) => {
           DESKTOP NAV
       ====================================================== */}
 
+      <div
+        className="
+          fixed
+          top-6
+          left-1/2
+          z-50
+          flex
+          items-center
+          gap-2
+          -translate-x-1/2
+        "
+      >
       <nav
         className="
           w-max
@@ -350,10 +366,6 @@ const Header = ({ travelEnabled = true }) => {
           items-center
           hidden
           sm:flex
-          fixed
-          top-6
-          right-1/2
-          translate-x-1/2
           bg-light/80
           dark:bg-dark/80
           dark:text-[#f5f5f3]
@@ -401,22 +413,20 @@ const Header = ({ travelEnabled = true }) => {
           className="mx-3 h-6 w-px bg-dark/30 dark:bg-[#f5f5f3]/30"
         />
 
+        <LanguageSelector showTranslateTarget />
+
         <button
           type="button"
-          onClick={() =>
-            setMode(mode === "dark" ? "light" : "dark")
-          }
+          onClick={() => setMode(mode === "dark" ? "light" : "dark")}
           className="rounded-full p-1 hover:opacity-70"
           aria-label={mode === "dark" ? "Switch to light mode" : "Switch to dark mode"}
           title={mode === "dark" ? "Switch to light mode" : "Switch to dark mode"}
         >
-          {mode === "dark" ? (
-            <SunIcon className="h-5 w-5" />
-          ) : (
-            <MoonIcon className="h-5 w-5" />
-          )}
+          {mode === "dark" ? <SunIcon className="h-5 w-5" /> : <MoonIcon className="h-5 w-5" />}
         </button>
+
       </nav>
+      </div>
     </header>
   );
 };

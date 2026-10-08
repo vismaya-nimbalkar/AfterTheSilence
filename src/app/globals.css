@@ -7,6 +7,34 @@
   text-align: justify !important;
 }
 
+.goog-te-banner-frame.skiptranslate {
+  display: none !important;
+}
+
+body {
+  top: 0 !important;
+}
+
+.goog-te-gadget {
+  font-size: 0 !important;
+}
+
+.goog-te-gadget .goog-te-combo {
+  display: none !important;
+}
+
+iframe.goog-te-banner-frame,
+.goog-te-banner-frame,
+body > .skiptranslate {
+  display: none !important;
+  visibility: hidden !important;
+  height: 0 !important;
+}
+
+#google_translate_element {
+  display: none !important;
+}
+
 html{
     scroll-behavior: smooth;
 }
