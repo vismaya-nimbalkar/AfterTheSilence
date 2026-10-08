@@ -15,7 +15,7 @@ export default async function AdminTravelPreviewPage() {
 
   const { data } = await supabase
     .from("travel_countries")
-    .select("id, country_name, map_id, country_code, status, notes, advisories")
+    .select("id, country_name, map_id, country_code, status, notes, advisories, last_edited_at, updated_at")
     .eq("published", true)
     .order("country_name", { ascending: true });
 

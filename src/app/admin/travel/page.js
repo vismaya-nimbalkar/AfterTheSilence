@@ -42,7 +42,8 @@ const emptyCountry = {
   status: "caution",
   notes: "",
   advisories: [],
-  published: true,
+  published: false,
+  last_edited_at: "",
 };
 
 export default function TravelAdminPage() {
@@ -51,7 +52,7 @@ export default function TravelAdminPage() {
   const [form, setForm] = useState(emptyCountry);
   const [editingId, setEditingId] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+  const [saving, setSaving] = useState(null);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [countryMenuOpen, setCountryMenuOpen] = useState(false);
@@ -123,9 +124,9 @@ export default function TravelAdminPage() {
     setCountryMenuOpen(false);
   };
 
-  const saveCountry = async (event) => {
+  const saveCountry = async (event, publish) => {
     event.preventDefault();
-    setSaving(true);
+    setSaving(publish ? "publish" : "draft");
     setError("");
     setMessage("");
 
@@ -133,23 +134,25 @@ export default function TravelAdminPage() {
       const response = await fetch("/api/admin/travel", {
         method: editingId ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(editingId ? { id: editingId, ...form } : form),
+        body: JSON.stringify(editingId ? { id: editingId, ...form, save_as_draft: !publish } : { ...form, save_as_draft: !publish }),
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "Could not save travel country.");
       await loadCountries();
-      setMessage(editingId ? "Travel country updated." : "Travel country added.");
+      setMessage(publish ? "Travel advisory published." : "Travel advisory saved as a draft.");
       resetForm();
     } catch (err) {
       setError(err.message);
     } finally {
-      setSaving(false);
+      setSaving(null);
     }
   };
 
   const editCountry = (country) => {
+    const draft = country.draft && typeof country.draft === "object" ? country.draft : null;
     setEditingId(country.id);
-    setForm({ ...emptyCountry, ...country, notes: notesToEditorValue(country.notes), advisories: country.advisories || [] });
+    const editableCountry = draft ? { ...country, ...draft, published: country.published } : country;
+    setForm({ ...emptyCountry, ...editableCountry, notes: notesToEditorValue(editableCountry.notes), advisories: editableCountry.advisories || [] });
     setError("");
     setMessage("");
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -219,7 +222,7 @@ export default function TravelAdminPage() {
         {error && <div className="mt-6 rounded-lg border border-red-500/30 p-4 text-red-600">{error}</div>}
         {message && <div className="mt-6 rounded-lg border border-green-500/30 bg-green-500/10 p-4 text-green-700">{message}</div>}
 
-        <form onSubmit={saveCountry} className="mt-10 rounded-2xl border border-dark/20 p-6">
+        <form onSubmit={(event) => saveCountry(event, true)} className="mt-10 rounded-2xl border border-dark/20 p-6">
           <div className="flex items-center justify-between gap-4">
             <h2 className="text-2xl font-semibold">{editingId ? "Edit country" : "Add a country"}</h2>
             {editingId && <button type="button" onClick={resetForm} className="text-sm opacity-60 hover:opacity-100">Cancel edit</button>}
@@ -271,7 +274,11 @@ export default function TravelAdminPage() {
                 {TRAVEL_STATUS_OPTIONS.map((status) => <option key={status.value} value={status.value}>{status.label}</option>)}
               </select>
             </label>
-            <label className="flex items-center gap-3 self-end pb-3 text-sm font-medium"><input type="checkbox" checked={form.published} onChange={(event) => updateForm("published", event.target.checked)} className="rounded" /> Show this country publicly</label>
+            <label className="text-sm font-medium">Last edited date
+              <input type="date" value={form.last_edited_at || ""} onChange={(event) => updateForm("last_edited_at", event.target.value)} className="mt-2 w-full rounded-lg border border-dark/20 bg-transparent px-4 py-3" />
+              <span className="mt-2 block text-xs font-normal opacity-60">Shown publicly on the travel advisory.</span>
+            </label>
+            <div className="self-end pb-3 text-sm opacity-60">{editingId && form.published ? "Published advisory: draft changes stay private until published." : "Drafts stay hidden until published."}</div>
           </div>
           <div className="mt-5 text-sm font-medium">
             <span>Your notes</span>
@@ -320,7 +327,10 @@ export default function TravelAdminPage() {
               {!form.advisories.length && <p className="text-sm opacity-60">No links added yet.</p>}
             </div>
           </div>
-          <button type="submit" disabled={saving} className="mt-8 rounded-lg bg-dark px-6 py-3 font-medium text-light transition-opacity hover:opacity-80 disabled:opacity-50 dark:bg-light dark:text-dark">{saving ? "Saving..." : editingId ? "Update country" : "Add country"}</button>
+          <div className="mt-8 flex flex-wrap gap-3">
+            <button type="button" disabled={saving !== null} onClick={(event) => saveCountry(event, false)} className="rounded-lg border border-dark px-6 py-3 font-medium transition-opacity hover:opacity-70 disabled:opacity-50">{saving === "draft" ? "Saving draft..." : "Save draft"}</button>
+            <button type="submit" disabled={saving !== null} className="rounded-lg bg-dark px-6 py-3 font-medium text-light transition-opacity hover:opacity-80 disabled:opacity-50 dark:bg-light dark:text-dark">{saving === "publish" ? "Publishing..." : "Publish advisory"}</button>
+          </div>
         </form>
 
         <section className="mt-12">

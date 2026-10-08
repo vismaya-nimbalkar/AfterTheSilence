@@ -81,11 +81,14 @@ export default function TravelMap({ travelCountries = [] }) {
     selectCountry(geography);
     setSearchQuery(geography.properties.name);
     setSearchOpen(false);
-    requestAnimationFrame(() => advisoryRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" }));
+    requestAnimationFrame(() => advisoryRef.current?.scrollTo({ top: 0, behavior: "smooth" }));
   };
 
   const status = selected?.status ? getTravelStatus(selected.status) : NO_ADVISORY_STATUS;
   const renderedNotes = renderNotes(selected?.notes);
+  const lastEditedDate = selected?.last_edited_at || selected?.updated_at
+    ? String(selected.last_edited_at || selected.updated_at).slice(0, 10)
+    : "";
 
   return (
     <>
@@ -121,8 +124,8 @@ export default function TravelMap({ travelCountries = [] }) {
         )}
       </div>
 
-      <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_360px]">
-      <div className="overflow-hidden rounded-3xl border border-dark/15 bg-white dark:bg-white">
+      <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_360px]">
+      <div className="h-fit overflow-hidden rounded-3xl border border-dark/15 bg-white dark:bg-white">
         <div className="flex items-center justify-between border-b border-dark/10 px-5 py-4 text-sm">
           <span className="font-medium">Political map</span>
           <span className="text-xs opacity-50">Pinch to zoom</span>
@@ -160,7 +163,7 @@ export default function TravelMap({ travelCountries = [] }) {
         </div>
       </div>
 
-      <aside ref={advisoryRef} className="rounded-3xl border border-dark/15 p-6">
+      <aside ref={advisoryRef} className="max-h-[calc(100vh-12rem)] overflow-y-auto rounded-3xl border border-dark/15 p-6">
         {selected ? (
           <>
             <div className="flex items-start gap-4">
@@ -168,6 +171,7 @@ export default function TravelMap({ travelCountries = [] }) {
               <div><p className="text-sm opacity-60">Travel advisory</p><h2 className="mt-1 text-2xl font-semibold">{selected.country_name}</h2></div>
             </div>
             <div className="mt-6 rounded-xl border border-dark/15 px-4 py-3 font-semibold" style={{ backgroundColor: status.color, color: status.textColor }}>{status.label}</div>
+            {lastEditedDate && <p className="mt-4 border-b border-dark/10 pb-4 text-sm font-medium opacity-70">Last edited {new Date(`${lastEditedDate}T12:00:00`).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}</p>}
             {renderedNotes?.html ? (
               <div className="prose prose-sm mt-6 max-w-none leading-7 opacity-80 dark:prose-invert" dangerouslySetInnerHTML={{ __html: renderedNotes.html }} />
             ) : (

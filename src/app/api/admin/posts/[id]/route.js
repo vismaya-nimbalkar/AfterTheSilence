@@ -60,6 +60,7 @@ export async function PATCH(request, { params }) {
     if (response) return response;
 
     const body = await request.json();
+    const lastEditedAt = body.last_edited_at || null;
     const { data: existingPost, error: existingPostError } = await supabaseAdmin
       .from("posts")
       .select("published_at")
@@ -79,11 +80,16 @@ export async function PATCH(request, { params }) {
       tags: Array.isArray(body.tags) ? body.tags : [],
       image_url: body.image_url || null,
       is_published: Boolean(body.is_published),
+      last_edited_at: body.last_edited_at || null,
       updated_at: new Date().toISOString(),
     };
 
     if (!updateData.slug) {
       return NextResponse.json({ error: "A valid slug is required." }, { status: 400 });
+    }
+
+    if (lastEditedAt && !/^\d{4}-\d{2}-\d{2}$/.test(lastEditedAt)) {
+      return NextResponse.json({ error: "Enter a valid last edited date." }, { status: 400 });
     }
 
     if (updateData.is_published && !existingPost.published_at) {

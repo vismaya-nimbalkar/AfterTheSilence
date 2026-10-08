@@ -18,12 +18,17 @@ export async function POST(request) {
     const body = await request.json();
     const title = body.title?.trim();
     const slug = slugify(body.slug);
+    const lastEditedAt = body.last_edited_at || null;
 
     if (!title || !slug || !body.content?.trim()) {
       return NextResponse.json(
         { error: "Title, slug, and content are required." },
         { status: 400 }
       );
+    }
+
+    if (lastEditedAt && !/^\d{4}-\d{2}-\d{2}$/.test(lastEditedAt)) {
+      return NextResponse.json({ error: "Enter a valid last edited date." }, { status: 400 });
     }
 
     const supabaseAdmin = createAdminClient();
@@ -38,6 +43,7 @@ export async function POST(request) {
         tags: Array.isArray(body.tags) ? body.tags : [],
         image_url: body.image_url || null,
         is_published: Boolean(body.is_published),
+        last_edited_at: lastEditedAt,
         published_at: body.is_published ? new Date().toISOString() : null,
         updated_at: new Date().toISOString(),
       })

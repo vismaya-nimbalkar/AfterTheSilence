@@ -32,8 +32,12 @@ function cleanCountry(body) {
     status: String(body.status || "caution").trim(),
     notes: String(body.notes || "").trim(),
     advisories,
-    published: body.published !== false,
+    last_edited_at: body.last_edited_at || null,
   };
+}
+
+function hasValidDate(value) {
+  return !value || /^\d{4}-\d{2}-\d{2}$/.test(value);
 }
 
 export async function GET() {
@@ -90,14 +94,25 @@ export async function POST(request) {
     const { response } = await requireAdmin();
     if (response) return response;
 
-    const body = cleanCountry(await request.json());
+    const requestBody = await request.json();
+    const body = cleanCountry(requestBody);
     if (!body.country_name || !body.map_id || !body.country_code) {
       return NextResponse.json({ error: "Country, map ID, and two-letter country code are required." }, { status: 400 });
     }
 
+    if (!hasValidDate(body.last_edited_at)) {
+      return NextResponse.json({ error: "Enter a valid last edited date." }, { status: 400 });
+    }
+
+    const saveAsDraft = requestBody.save_as_draft === true;
+
     const { data, error } = await createAdminClient()
       .from("travel_countries")
-      .insert(body)
+      .insert({
+        ...body,
+        published: !saveAsDraft,
+        draft: saveAsDraft ? body : null,
+      })
       .select()
       .single();
 
@@ -114,12 +129,25 @@ export async function PATCH(request) {
     const { response } = await requireAdmin();
     if (response) return response;
 
-    const { id, ...payload } = await request.json();
+    const { id, save_as_draft: saveAsDraft, ...payload } = await request.json();
     if (!id) return NextResponse.json({ error: "Country ID is required." }, { status: 400 });
+
+    const body = cleanCountry(payload);
+    if (!body.country_name || !body.map_id || !body.country_code) {
+      return NextResponse.json({ error: "Country, map ID, and two-letter country code are required." }, { status: 400 });
+    }
+
+    if (!hasValidDate(body.last_edited_at)) {
+      return NextResponse.json({ error: "Enter a valid last edited date." }, { status: 400 });
+    }
+
+    const update = saveAsDraft === true
+      ? { draft: body, updated_at: new Date().toISOString() }
+      : { ...body, published: true, draft: null, updated_at: new Date().toISOString() };
 
     const { data, error } = await createAdminClient()
       .from("travel_countries")
-      .update(cleanCountry(payload))
+      .update(update)
       .eq("id", id)
       .select()
       .single();

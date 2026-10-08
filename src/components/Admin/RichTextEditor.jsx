@@ -800,10 +800,19 @@ export default function RichTextEditor({
   ========================================================== */
 
   useEffect(() => {
-    if (
-      !editor ||
-      !value
-    ) {
+    if (!editor) {
+      return;
+    }
+
+    if (!value) {
+      syncingRef.current = true;
+      editor.commands.clearContent(false);
+      footnotesRef.current = [];
+      setFootnotes([]);
+      lastLoadedValueRef.current = value;
+      setTimeout(() => {
+        syncingRef.current = false;
+      }, 0);
       return;
     }
 
