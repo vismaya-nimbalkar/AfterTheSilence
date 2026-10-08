@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/src/lib/supabase/server";
 import { createAdminClient } from "@/src/lib/supabase/admin";
 import { getUserRole } from "@/src/lib/admin/permissions";
+import { DEFAULT_SITE_SETTINGS, normalizeAboutBody } from "@/src/lib/siteSettings";
 
 async function requireAdmin() {
   const supabase = await createClient();
@@ -21,14 +22,15 @@ export async function GET() {
 
     const { data, error } = await createAdminClient()
       .from("site_settings")
-      .select("contact_phone, contact_email")
+      .select("contact_phone, contact_email, about_heading, about_body")
       .eq("id", "global")
       .maybeSingle();
 
     if (error) throw error;
     return NextResponse.json({
-      contact_phone: data?.contact_phone || "",
-      contact_email: data?.contact_email || "",
+      ...DEFAULT_SITE_SETTINGS,
+      ...(data || {}),
+      about_body: normalizeAboutBody(data?.about_body),
     });
   } catch (error) {
     console.error("Site settings GET error:", error);
@@ -44,6 +46,8 @@ export async function PATCH(request) {
     const body = await request.json();
     const contactPhone = String(body.contact_phone || "").trim();
     const contactEmail = String(body.contact_email || "").trim();
+    const aboutHeading = String(body.about_heading || "").trim();
+    const aboutBody = String(body.about_body || "").trim();
 
     if (contactEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactEmail)) {
       return NextResponse.json({ error: "Enter a valid email address." }, { status: 400 });
@@ -55,12 +59,14 @@ export async function PATCH(request) {
         id: "global",
         contact_phone: contactPhone,
         contact_email: contactEmail,
+        about_heading: aboutHeading,
+        about_body: normalizeAboutBody(aboutBody),
       }, { onConflict: "id" })
-      .select("contact_phone, contact_email")
+      .select("contact_phone, contact_email, about_heading, about_body")
       .single();
 
     if (error) throw error;
-    return NextResponse.json(data);
+    return NextResponse.json({ ...DEFAULT_SITE_SETTINGS, ...data, about_body: normalizeAboutBody(data.about_body) });
   } catch (error) {
     console.error("Site settings PATCH error:", error);
     return NextResponse.json({ error: error?.message || "Could not save site settings." }, { status: 500 });

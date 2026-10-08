@@ -332,6 +332,7 @@ function FootnoteEditor({
 export default function RichTextEditor({
   value = "",
   onChange,
+  enableAttachments = true,
 }) {
   const imageInputRef = useRef(null);
   const audioInputRef = useRef(null);
@@ -1827,37 +1828,41 @@ export default function RichTextEditor({
 
       {/* HIDDEN FILE INPUTS */}
 
-      <input
-        ref={imageInputRef}
-        type="file"
-        accept="image/jpeg,image/png,image/webp,image/gif"
-        className="hidden"
-        onChange={handleImage}
-      />
+      {enableAttachments && (
+        <>
+          <input
+            ref={imageInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp,image/gif"
+            className="hidden"
+            onChange={handleImage}
+          />
 
-      <input
-        ref={audioInputRef}
-        type="file"
-        accept="audio/*"
-        className="hidden"
-        onChange={handleAudio}
-      />
+          <input
+            ref={audioInputRef}
+            type="file"
+            accept="audio/*"
+            className="hidden"
+            onChange={handleAudio}
+          />
 
-      <input
-        ref={videoInputRef}
-        type="file"
-        accept="video/*"
-        className="hidden"
-        onChange={handleVideo}
-      />
+          <input
+            ref={videoInputRef}
+            type="file"
+            accept="video/*"
+            className="hidden"
+            onChange={handleVideo}
+          />
 
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept=".pdf,.doc,.docx,.txt,.csv"
-        className="hidden"
-        onChange={handleFile}
-      />
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".pdf,.doc,.docx,.txt,.csv"
+            className="hidden"
+            onChange={handleFile}
+          />
+        </>
+      )}
 
       {/* ======================================================
           MAIN TOOLBAR
@@ -2223,53 +2228,57 @@ export default function RichTextEditor({
           />
         </ToolbarButton>
 
-        <ToolbarButton
-          onClick={() =>
-            imageInputRef.current?.click()
-          }
-          title="Insert image"
-        >
-          <ImageIcon
-            size={17}
-            strokeWidth={1.8}
-          />
-        </ToolbarButton>
+        {enableAttachments && (
+          <>
+            <ToolbarButton
+              onClick={() =>
+                imageInputRef.current?.click()
+              }
+              title="Insert image"
+            >
+              <ImageIcon
+                size={17}
+                strokeWidth={1.8}
+              />
+            </ToolbarButton>
 
-        <ToolbarButton
-          onClick={() =>
-            audioInputRef.current?.click()
-          }
-          title="Insert audio"
-        >
-          <AudioLines
-            size={17}
-            strokeWidth={1.8}
-          />
-        </ToolbarButton>
+            <ToolbarButton
+              onClick={() =>
+                audioInputRef.current?.click()
+              }
+              title="Insert audio"
+            >
+              <AudioLines
+                size={17}
+                strokeWidth={1.8}
+              />
+            </ToolbarButton>
 
-        <ToolbarButton
-          onClick={() =>
-            videoInputRef.current?.click()
-          }
-          title="Insert video"
-        >
-          <Video
-            size={17}
-            strokeWidth={1.8}
-          />
-        </ToolbarButton>
+            <ToolbarButton
+              onClick={() =>
+                videoInputRef.current?.click()
+              }
+              title="Insert video"
+            >
+              <Video
+                size={17}
+                strokeWidth={1.8}
+              />
+            </ToolbarButton>
 
-        <ToolbarButton
-          onClick={() =>
-            fileInputRef.current?.click()
-          }
-          title="Attach file"
-        >
-          <Paperclip
-            size={17}
-            strokeWidth={1.8}
-          />
-        </ToolbarButton>
+            <ToolbarButton
+              onClick={() =>
+                fileInputRef.current?.click()
+              }
+              title="Attach file"
+            >
+              <Paperclip
+                size={17}
+                strokeWidth={1.8}
+              />
+            </ToolbarButton>
+          </>
+        )}
 
         <ToolbarDivider />
 

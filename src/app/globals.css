@@ -2,6 +2,11 @@
 @tailwind components;
 @tailwind utilities;
 
+.blog-copy p,
+.blog-copy li {
+  text-align: justify !important;
+}
+
 html{
     scroll-behavior: smooth;
 }

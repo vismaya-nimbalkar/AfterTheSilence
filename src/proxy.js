@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { getUserRole } from "@/src/lib/admin/permissions";
 
-export async function middleware(request) {
+export async function proxy(request) {
   let response = NextResponse.next({
     request,
   });
@@ -48,26 +48,14 @@ export async function middleware(request) {
   const isSecurityRoute =
     pathname === "/admin/security";
 
-  // ------------------------------------------------------------
-  // NOT AN ADMIN ROUTE
-  // ------------------------------------------------------------
-
   if (!isAdminRoute) {
     return response;
   }
-
-  // ------------------------------------------------------------
-  // GET USER
-  // ------------------------------------------------------------
 
   const {
     data: { user },
     error: userError,
   } = await supabase.auth.getUser();
-
-  // ------------------------------------------------------------
-  // NO SESSION
-  // ------------------------------------------------------------
 
   if (userError || !user) {
     if (isLoginRoute) {
@@ -81,10 +69,6 @@ export async function middleware(request) {
       )
     );
   }
-
-  // ------------------------------------------------------------
-  // CHECK MFA / AAL
-  // ------------------------------------------------------------
 
   const {
     data: aal,
@@ -112,13 +96,6 @@ export async function middleware(request) {
   const nextLevel =
     aal?.nextLevel;
 
-  // ------------------------------------------------------------
-  // MFA IS REQUIRED
-  //
-  // AAL1 = password/passkey authenticated
-  // AAL2 = password/passkey + MFA authenticated
-  // ------------------------------------------------------------
-
   const mfaRequired =
     nextLevel === "aal2" &&
     currentLevel !== "aal2";
@@ -140,17 +117,11 @@ export async function middleware(request) {
     );
   }
 
-  // ------------------------------------------------------------
-  // USER NEEDS MFA
-  // ------------------------------------------------------------
-
   if (mfaRequired) {
-    // Let the MFA page load.
     if (isMFARoute) {
       return response;
     }
 
-    // Send every other admin route to MFA.
     return NextResponse.redirect(
       new URL(
         "/admin/login/mfa",
@@ -159,12 +130,6 @@ export async function middleware(request) {
     );
   }
 
-  // ------------------------------------------------------------
-  // USER IS ALREADY FULLY AUTHENTICATED
-  // ------------------------------------------------------------
-
-  // Don't allow an already-authenticated user
-  // to sit on the login page.
   if (
     pathname === "/admin/login"
   ) {

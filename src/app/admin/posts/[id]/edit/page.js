@@ -13,7 +13,7 @@ export default function EditPostPage() {
   const router = useRouter();
 
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+  const [savingAction, setSavingAction] = useState(null);
   const [error, setError] = useState("");
 
   const [title, setTitle] = useState("");
@@ -99,7 +99,7 @@ export default function EditPostPage() {
 
   const handleSave = async (publish) => {
     setError("");
-    setSaving(true);
+    setSavingAction(publish ? "publish" : "save");
 
     const tagArray = tags
       .split(",")
@@ -138,7 +138,7 @@ export default function EditPostPage() {
     } catch (uploadErr) {
       console.error(uploadErr);
       setError(uploadErr.message || "Could not save the cover image.");
-      setSaving(false);
+      setSavingAction(null);
       return;
     }
 
@@ -154,10 +154,6 @@ export default function EditPostPage() {
       updated_at: new Date().toISOString(),
     };
 
-    if (publish) {
-      updateData.published_at = new Date().toISOString();
-    }
-
     const response = await fetch(`/api/admin/posts/${params.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -168,7 +164,7 @@ export default function EditPostPage() {
     if (!response.ok) {
       console.error(result.error);
       setError(result.error || "Could not save the post.");
-      setSaving(false);
+      setSavingAction(null);
       return;
     }
 
@@ -342,20 +338,20 @@ export default function EditPostPage() {
 
             <button
               type="button"
-              disabled={saving}
+              disabled={savingAction !== null}
               onClick={() => handleSave(false)}
               className="rounded-lg border border-dark/20 px-6 py-3 font-medium hover:bg-dark/5 disabled:opacity-50"
             >
-              Save Draft
+              {savingAction === "save" ? "Saving..." : "Save Draft"}
             </button>
 
             <button
               type="button"
-              disabled={saving}
+              disabled={savingAction !== null}
               onClick={() => handleSave(true)}
               className="rounded-lg bg-dark px-6 py-3 font-medium text-light hover:opacity-80 disabled:opacity-50"
             >
-              {saving ? "Saving..." : "Save & Publish"}
+              {savingAction === "publish" ? "Publishing..." : "Save & Publish"}
             </button>
 
           </div>

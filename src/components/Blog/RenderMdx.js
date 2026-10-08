@@ -8,7 +8,7 @@ const mdxComponents = {
 
 const RenderMdx = ({blog}) => {
   return (
-    <div className='col-span-12  lg:col-span-8 font-in prose sm:prose-base md:prose-lg max-w-max
+    <div className='blog-copy col-span-12  lg:col-span-8 font-in prose sm:prose-base md:prose-lg max-w-max
     prose-blockquote:bg-accent/20 
     prose-blockquote:p-2
     prose-blockquote:px-6
@@ -26,6 +26,9 @@ const RenderMdx = ({blog}) => {
     dark:prose-blockquote:border-accentDark
     dark:prose-blockquote:bg-accentDark/20
     dark:prose-li:marker:text-accentDark
+
+    [&_p]:!text-justify
+    [&_li]:!text-justify
 
     first-letter:text-3xl
     sm:first-letter:text-5xl'> 

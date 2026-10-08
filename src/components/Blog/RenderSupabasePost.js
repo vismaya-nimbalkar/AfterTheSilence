@@ -654,6 +654,7 @@ const RenderSupabasePost = ({
   return (
     <div
       className="
+        blog-copy
         col-span-12
         lg:col-span-8
         font-in
@@ -675,6 +676,9 @@ const RenderSupabasePost = ({
         dark:prose-blockquote:border-accentDark
         dark:prose-blockquote:bg-accentDark/20
         dark:prose-li:marker:text-accentDark
+
+        [&_p]:!text-justify
+        [&_li]:!text-justify
 
         first-letter:text-3xl
         sm:first-letter:text-5xl

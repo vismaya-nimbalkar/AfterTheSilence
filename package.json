@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "npx velite --watch & next dev",
+    "dev": "concurrently \"velite --watch\" \"next dev\"",
     "build": "velite && next build",
     "start": "next start",
     "lint": "next lint",

@@ -818,8 +818,8 @@ export default function NewPostPage() {
      UI STATE
   ========================================================== */
 
-  const [loading, setLoading] =
-    useState(false);
+  const [loadingAction, setLoadingAction] =
+    useState(null);
 
   const [message, setMessage] =
     useState("");
@@ -948,7 +948,7 @@ export default function NewPostPage() {
       return;
     }
 
-    setLoading(true);
+    setLoadingAction(publish ? "publish" : "save");
 
     try {
       const now =
@@ -1032,7 +1032,7 @@ export default function NewPostPage() {
             "Could not upload the cover image. Please try again."
         );
 
-        setLoading(false);
+        setLoadingAction(null);
 
         return;
       }
@@ -1100,7 +1100,7 @@ export default function NewPostPage() {
           );
         }
 
-        setLoading(false);
+        setLoadingAction(null);
 
         return;
       }
@@ -1118,7 +1118,7 @@ export default function NewPostPage() {
       const failedAccess = accessResponses.find((response) => !response.ok);
       if (failedAccess) {
         setError("Post created, but collaborator access could not be saved.");
-        setLoading(false);
+        setLoadingAction(null);
         return;
       }
 
@@ -1151,7 +1151,7 @@ export default function NewPostPage() {
           "Something went wrong. Please try again."
       );
 
-      setLoading(false);
+      setLoadingAction(null);
     }
   };
 
@@ -1646,7 +1646,7 @@ export default function NewPostPage() {
 
             <button
               type="button"
-              disabled={loading}
+              disabled={loadingAction !== null}
               onClick={() =>
                 savePost(false)
               }
@@ -1663,7 +1663,7 @@ export default function NewPostPage() {
                 disabled:opacity-50
               "
             >
-              {loading
+              {loadingAction === "save"
                 ? "Saving..."
                 : "Save Draft"}
             </button>
@@ -1672,7 +1672,7 @@ export default function NewPostPage() {
 
             <button
               type="button"
-              disabled={loading}
+              disabled={loadingAction !== null}
               onClick={() =>
                 savePost(true)
               }
@@ -1689,7 +1689,7 @@ export default function NewPostPage() {
                 disabled:opacity-50
               "
             >
-              {loading
+              {loadingAction === "publish"
                 ? "Publishing..."
                 : "Publish"}
             </button>

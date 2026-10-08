@@ -1,5 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  turbopack: {
+    root: process.cwd(),
+  },
   images: {
     remotePatterns: [
       {
@@ -12,4 +15,4 @@ const nextConfig = {
   },
 };
 
-export default nextConfig;
+module.exports = nextConfig;

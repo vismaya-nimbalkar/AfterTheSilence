@@ -60,6 +60,16 @@ export async function PATCH(request, { params }) {
     if (response) return response;
 
     const body = await request.json();
+    const { data: existingPost, error: existingPostError } = await supabaseAdmin
+      .from("posts")
+      .select("published_at")
+      .eq("id", id)
+      .single();
+
+    if (existingPostError) {
+      return NextResponse.json({ error: existingPostError.message || "Could not load post." }, { status: 500 });
+    }
+
     const updateData = {
       title: body.title?.trim(),
       slug: slugify(body.slug),
@@ -76,7 +86,7 @@ export async function PATCH(request, { params }) {
       return NextResponse.json({ error: "A valid slug is required." }, { status: 400 });
     }
 
-    if (updateData.is_published) {
+    if (updateData.is_published && !existingPost.published_at) {
       updateData.published_at = new Date().toISOString();
     }
 

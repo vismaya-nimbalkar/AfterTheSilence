@@ -1,15 +1,18 @@
 import AboutCoverSection from "@/src/components/About/AboutCoverSection";
-import Link from "next/link";
+import { createClient } from "@/src/lib/supabase/server";
+import { getSiteSettings } from "@/src/lib/siteSettings";
 
 export const metadata = {
   title: "About Us",
   description: `The Heart`,
 };
 
-export default function About() {
+export default async function About() {
+  const settings = await getSiteSettings(await createClient());
+
   return (
     <>
-      <AboutCoverSection />
+      <AboutCoverSection settings={settings} />
     </>
   );
 }
