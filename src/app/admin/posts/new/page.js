@@ -798,9 +798,6 @@ export default function NewPostPage() {
   const [content, setContent] =
     useState("");
 
-  const [lastEditedAt, setLastEditedAt] =
-    useState("");
-
   const [isAdmin, setIsAdmin] =
     useState(false);
 
@@ -1071,7 +1068,6 @@ export default function NewPostPage() {
           tags: tagArray,
           image_url: publicUrl,
           is_published: publish,
-          last_edited_at: lastEditedAt || null,
         }),
       });
       const createResult = await createResponse.json().catch(() => ({}));
@@ -1184,25 +1180,6 @@ export default function NewPostPage() {
               New Post
             </h1>
 
-          </div>
-
-          <div>
-            <label
-              htmlFor="last-edited-at"
-              className="mb-2 block text-sm font-medium"
-            >
-              Last edited date
-            </label>
-            <input
-              id="last-edited-at"
-              type="date"
-              value={lastEditedAt}
-              onChange={(event) => setLastEditedAt(event.target.value)}
-              className="rounded-lg border border-dark/20 bg-transparent px-4 py-3 outline-none"
-            />
-            <p className="mt-2 text-sm opacity-50">
-              This is shown to readers when the post is published.
-            </p>
           </div>
 
           <button

@@ -314,19 +314,19 @@ const Header = ({ travelEnabled = true }) => {
         onClick={quickExit}
         className="
           fixed
-          top-4
+          top-6
           right-4
           z-[100]
           hidden
           sm:block
-          px-4
-          py-2
+          px-5
+          py-3
           bg-dark
           text-light
           dark:bg-light
           dark:text-dark
           rounded-full
-          text-sm
+          text-base
           font-medium
           hover:opacity-80
           transition-opacity

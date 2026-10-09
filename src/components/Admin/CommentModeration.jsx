@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import CommentReply from "./CommentReply";
+import { useConfirmDialog } from "./ConfirmDialog";
 
 export default function CommentModeration({
   comments: initialComments = [],
@@ -13,6 +14,7 @@ export default function CommentModeration({
   const [actionError, setActionError] = useState("");
   const [editingId, setEditingId] = useState(null);
   const [editingText, setEditingText] = useState("");
+  const { confirm, dialog } = useConfirmDialog();
 
   const updateComment = async (id, action) => {
     if (!id) {
@@ -60,7 +62,11 @@ export default function CommentModeration({
       return;
     }
 
-    const confirmed = window.confirm("Permanently delete this comment?");
+    const confirmed = await confirm({
+      title: "Delete comment?",
+      message: "This comment and any official reply attached to it will be permanently deleted.",
+      confirmLabel: "Delete comment",
+    });
     if (!confirmed) return;
 
     setLoadingId(id);
@@ -97,9 +103,11 @@ export default function CommentModeration({
       return;
     }
 
-    const confirmed = window.confirm(
-      "Ban this commenter?\n\nTheir email and/or IP hash will be added to the ban list, and this comment will be rejected."
-    );
+    const confirmed = await confirm({
+      title: "Ban commenter?",
+      message: "Their email and/or IP hash will be added to the ban list, and this comment will be rejected.",
+      confirmLabel: "Ban commenter",
+    });
 
     if (!confirmed) return;
 
@@ -179,10 +187,14 @@ export default function CommentModeration({
         );
       }
 
+      const updatedComment = typeof result.comment === "object"
+        ? result.comment?.comment
+        : result.comment;
+
       setComments((current) =>
         current.map((item) =>
           String(item.id) === String(comment.id)
-            ? { ...item, comment: result.comment ?? editingText.trim() }
+            ? { ...item, comment: updatedComment || editingText.trim() }
             : item
         )
       );
@@ -204,6 +216,9 @@ export default function CommentModeration({
     (comment) => comment.status !== "pending" && !comment.parent_id
   );
 
+  const getReplies = (commentId) =>
+    comments.filter((comment) => String(comment.parent_id) === String(commentId));
+
   return (
     <div className="space-y-10">
       {actionError && (
@@ -212,6 +227,8 @@ export default function CommentModeration({
           <p className="mt-1 opacity-80">{actionError}</p>
         </div>
       )}
+
+      {dialog}
 
       <div>
         <div className="mb-5 flex items-center justify-between">
@@ -230,6 +247,7 @@ export default function CommentModeration({
               <CommentCard
                 key={comment.id}
                 comment={comment}
+                replies={getReplies(comment.id)}
                 canModerateAll={canModerateAll}
                 loading={loadingId === comment.id}
                 editingId={editingId}
@@ -239,9 +257,10 @@ export default function CommentModeration({
                 onReject={() => updateComment(comment.id, "reject")}
                 onBan={() => banCommenter(comment)}
                 onDelete={() => deleteComment(comment.id)}
+                onDeleteReply={deleteComment}
                 onReply={addReplyToComments}
-                onEdit={() => startEditing(comment)}
-                onSaveEdit={() => saveEdit(comment)}
+                onEdit={startEditing}
+                onSaveEdit={saveEdit}
                 onCancelEdit={cancelEditing}
               />
             ))}
@@ -260,6 +279,7 @@ export default function CommentModeration({
               <CommentCard
                 key={comment.id}
                 comment={comment}
+                replies={getReplies(comment.id)}
                 canModerateAll={canModerateAll}
                 loading={loadingId === comment.id}
                 editingId={editingId}
@@ -269,9 +289,10 @@ export default function CommentModeration({
                 onReject={() => updateComment(comment.id, "reject")}
                 onBan={() => banCommenter(comment)}
                 onDelete={() => deleteComment(comment.id)}
+                onDeleteReply={deleteComment}
                 onReply={addReplyToComments}
-                onEdit={() => startEditing(comment)}
-                onSaveEdit={() => saveEdit(comment)}
+                onEdit={startEditing}
+                onSaveEdit={saveEdit}
                 onCancelEdit={cancelEditing}
               />
             ))}
@@ -284,6 +305,7 @@ export default function CommentModeration({
 
 function CommentCard({
   comment,
+  replies = [],
   canModerateAll = true,
   loading,
   editingId,
@@ -293,13 +315,12 @@ function CommentCard({
   onReject,
   onBan,
   onDelete,
+  onDeleteReply,
   onReply,
   onEdit,
   onSaveEdit,
   onCancelEdit,
 }) {
-  const isEditing = editingId === comment.id;
-
   return (
     <article className="rounded-2xl border border-dark/20 p-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -330,47 +351,32 @@ function CommentCard({
         </div>
       </div>
 
-      {isEditing ? (
-        <div className="mt-5">
-          <textarea
-            value={editingText}
-            onChange={(event) => setEditingText(event.target.value)}
-            rows={5}
-            maxLength={5000}
-            autoFocus
-            className="w-full resize-y rounded-xl border border-dark/20 bg-transparent px-4 py-3 text-sm leading-7 outline-none focus:border-dark dark:border-light/20 dark:focus:border-light"
-          />
+      <div className="mt-5 rounded-xl bg-dark/5 p-4 dark:bg-light/5">
+        <p className="whitespace-pre-wrap text-sm leading-7">
+          {comment.comment}
+        </p>
+      </div>
 
-          <div className="mt-3 flex flex-wrap gap-3">
-            <button
-              type="button"
-              onClick={() => onSaveEdit()}
-              disabled={loading}
-              className="rounded-lg bg-dark px-4 py-2 text-sm font-medium text-light transition-opacity hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {loading ? "Saving..." : "Save Changes"}
-            </button>
-
-            <button
-              type="button"
-              onClick={onCancelEdit}
-              disabled={loading}
-              className="rounded-lg border border-dark/20 px-4 py-2 text-sm font-medium transition-colors hover:bg-dark/5 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
-      ) : (
-        <div className="mt-5 rounded-xl bg-dark/5 p-4 dark:bg-light/5">
-          <p className="whitespace-pre-wrap text-sm leading-7">
-            {comment.comment}
-          </p>
+      {replies.length > 0 && (
+        <div className="mt-5 space-y-4 rounded-xl border-l-2 border-accent bg-dark/[0.025] p-4 pl-5 dark:bg-light/[0.025]">
+          {replies.map((reply) => (
+            <AdminReplyCard
+              key={reply.id}
+              reply={reply}
+              loading={loading}
+              editingId={editingId}
+              editingText={editingText}
+              setEditingText={setEditingText}
+              onEdit={() => onEdit(reply)}
+              onSaveEdit={() => onSaveEdit(reply)}
+              onCancelEdit={onCancelEdit}
+              onDelete={() => onDeleteReply(reply.id)}
+            />
+          ))}
         </div>
       )}
 
-      {!isEditing && (
-        <div className="mt-5 flex flex-wrap gap-3">
+      <div className="mt-5 flex flex-wrap gap-3">
           {canModerateAll && !comment.is_admin && comment.status !== "approved" && (
             <button
               type="button"
@@ -404,17 +410,6 @@ function CommentCard({
             </button>
           )}
 
-          {comment.is_admin && canModerateAll && (
-            <button
-              type="button"
-              onClick={onEdit}
-              disabled={loading}
-              className="rounded-lg border border-dark/20 px-4 py-2 text-sm font-medium transition-colors hover:bg-dark/5 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              Edit Reply
-            </button>
-          )}
-
           {canModerateAll && (
             <button
               type="button"
@@ -433,8 +428,64 @@ function CommentCard({
               onReply={onReply}
             />
           )}
-        </div>
-      )}
+      </div>
     </article>
+  );
+}
+
+function AdminReplyCard({
+  reply,
+  loading,
+  editingId,
+  editingText,
+  setEditingText,
+  onEdit,
+  onSaveEdit,
+  onCancelEdit,
+  onDelete,
+}) {
+  const isEditing = editingId === reply.id;
+
+  return (
+    <div>
+      <div className="flex flex-wrap items-center gap-2">
+        <h5 className="font-semibold">{reply.name || "Vismaya Nimbalkar"}</h5>
+        <span className="rounded-full bg-accent px-2 py-1 text-xs font-semibold text-light">✓ Official</span>
+        {reply.created_at && <span className="text-xs opacity-50">{new Date(reply.created_at).toLocaleString()}</span>}
+      </div>
+
+      {isEditing ? (
+        <div className="mt-3">
+          <textarea
+            value={editingText}
+            onChange={(event) => setEditingText(event.target.value)}
+            rows={4}
+            maxLength={5000}
+            autoFocus
+            className="w-full resize-y rounded-xl border border-dark/20 bg-transparent px-4 py-3 text-sm leading-7 outline-none focus:border-dark dark:border-light/20 dark:focus:border-light"
+          />
+          <div className="mt-3 flex flex-wrap gap-3">
+            <button type="button" onClick={onSaveEdit} disabled={loading} className="rounded-lg bg-dark px-4 py-2 text-sm font-medium text-light transition-opacity hover:opacity-80 disabled:opacity-50">
+              {loading ? "Saving..." : "Save Changes"}
+            </button>
+            <button type="button" onClick={onCancelEdit} disabled={loading} className="rounded-lg border border-dark/20 px-4 py-2 text-sm font-medium transition-colors hover:bg-dark/5 disabled:opacity-50">
+              Cancel
+            </button>
+          </div>
+        </div>
+      ) : (
+        <>
+          <p className="mt-3 whitespace-pre-wrap text-sm leading-7">{reply.comment}</p>
+          <div className="mt-3 flex flex-wrap gap-3">
+            <button type="button" onClick={onEdit} disabled={loading} className="rounded-lg border border-dark/20 px-4 py-2 text-sm font-medium transition-colors hover:bg-dark/5 disabled:opacity-50">
+              Edit Reply
+            </button>
+            <button type="button" onClick={onDelete} disabled={loading} className="rounded-lg border border-red-500/30 px-4 py-2 text-sm font-medium text-red-600 transition-colors hover:bg-red-500/10 disabled:opacity-50">
+              Delete Reply
+            </button>
+          </div>
+        </>
+      )}
+    </div>
   );
 }

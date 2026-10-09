@@ -391,16 +391,6 @@ export default async function BlogPage({ params }) {
               })}
             </time>
 
-            {supabasePost.last_edited_at && (
-              <time className="whitespace-nowrap text-left text-sm sm:text-base">
-                Last edited {new Date(`${supabasePost.last_edited_at}T12:00:00`).toLocaleDateString("en-US", {
-                  month: "long",
-                  day: "numeric",
-                  year: "numeric",
-                })}
-              </time>
-            )}
-
             {/* Author */}
             {supabasePost.author && (
               <span

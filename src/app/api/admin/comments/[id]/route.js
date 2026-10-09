@@ -212,6 +212,18 @@ export async function PATCH(request, { params }) {
         );
       }
 
+      if (!existingComment.parent_id) {
+        return NextResponse.json(
+          {
+            error:
+              "Only threaded official replies can be edited.",
+          },
+          {
+            status: 403,
+          }
+        );
+      }
+
       // --------------------------------------------------------
       // UPDATE REPLY
       // --------------------------------------------------------
@@ -354,7 +366,7 @@ export async function DELETE(
     } = await supabaseAdmin
       .from("comments")
       .select(
-        "id, is_admin"
+        "id, is_admin, parent_id"
       )
       .eq("id", id)
       .maybeSingle();
@@ -385,6 +397,17 @@ export async function DELETE(
         },
         {
           status: 404,
+        }
+      );
+    }
+
+    if (!existingComment.is_admin || !existingComment.parent_id) {
+      return NextResponse.json(
+        {
+          error: "Only official threaded replies can be deleted.",
+        },
+        {
+          status: 403,
         }
       );
     }

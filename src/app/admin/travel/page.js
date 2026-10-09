@@ -6,6 +6,7 @@ import { feature } from "topojson-client";
 import world from "world-atlas/countries-50m.json";
 import { getTravelMapId, getTravelMapIds, TRAVEL_STATUS_OPTIONS } from "@/src/lib/travel";
 import RichTextEditor from "@/src/components/Admin/RichTextEditor";
+import { useConfirmDialog } from "@/src/components/Admin/ConfirmDialog";
 
 function notesToEditorValue(notes) {
   if (!notes) return "";
@@ -60,6 +61,7 @@ export default function TravelAdminPage() {
   const [dragOverAdvisoryIndex, setDragOverAdvisoryIndex] = useState(null);
   const [featureEnabled, setFeatureEnabled] = useState(true);
   const [updatingFeature, setUpdatingFeature] = useState(false);
+  const { confirm, dialog } = useConfirmDialog();
 
   const loadCountries = async () => {
     const response = await fetch("/api/admin/travel", { cache: "no-store" });
@@ -159,7 +161,11 @@ export default function TravelAdminPage() {
   };
 
   const deleteCountry = async (country) => {
-    if (!window.confirm(`Delete the travel advisory for ${country.country_name}?`)) return;
+    if (!await confirm({
+      title: "Delete travel advisory?",
+      message: `The advisory for ${country.country_name} will be permanently deleted.`,
+      confirmLabel: "Delete advisory",
+    })) return;
     const response = await fetch("/api/admin/travel", {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
@@ -200,7 +206,7 @@ export default function TravelAdminPage() {
   if (loading) return <main className="flex min-h-screen items-center justify-center"><p className="opacity-60">Loading travel management...</p></main>;
 
   return (
-    <main className="min-h-screen px-6 py-16 sm:px-10">
+    <main className="min-h-screen px-6 py-16 sm:px-10">{dialog}
       <div className="mx-auto max-w-6xl">
         <button type="button" onClick={() => router.push("/admin")} className="text-sm opacity-60 hover:opacity-100">Back to Dashboard</button>
         <h1 className="mt-8 text-4xl font-bold">Travel advisories</h1>

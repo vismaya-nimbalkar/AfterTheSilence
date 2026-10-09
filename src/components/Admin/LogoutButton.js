@@ -27,16 +27,14 @@ export default function LogoutButton() {
       className="
         rounded-lg
         border
-        border-dark/20
-        px-4
-        py-2
-        text-sm
+        border-dark
+        px-5
+        py-3
         font-medium
         text-center
         whitespace-nowrap
-        transition-colors
-        hover:bg-dark
-        hover:text-light
+        transition-opacity
+        hover:opacity-70
         disabled:opacity-50
       "
     >

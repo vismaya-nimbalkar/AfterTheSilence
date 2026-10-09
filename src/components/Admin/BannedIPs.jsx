@@ -1,12 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useConfirmDialog } from "./ConfirmDialog";
 
 export default function BannedIPs() {
   const [bannedUsers, setBannedUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [unbanningId, setUnbanningId] = useState(null);
   const [error, setError] = useState("");
+  const { confirm, dialog } = useConfirmDialog();
 
   // ==========================================================
   // LOAD BANNED COMMENTERS
@@ -68,9 +70,12 @@ export default function BannedIPs() {
       return;
     }
 
-    const confirmed = window.confirm(
-      "Unban this commenter?\n\nThey will be allowed to submit comments again."
-    );
+    const confirmed = await confirm({
+      title: "Unban commenter?",
+      message: "They will be allowed to submit comments again.",
+      confirmLabel: "Unban commenter",
+      danger: false,
+    });
 
     if (!confirmed) {
       return;
@@ -129,7 +134,8 @@ export default function BannedIPs() {
   // ==========================================================
 
   return (
-    <section className="mt-16">
+    <section className="relative mt-16">
+      {dialog}
 
       {/* ======================================================
           HEADER

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/src/lib/supabase/client";
 import { getUserRole } from "@/src/lib/admin/permissions";
+import { useConfirmDialog } from "@/src/components/Admin/ConfirmDialog";
 
 export default function EditorsPage() {
   const router = useRouter();
@@ -16,6 +17,7 @@ export default function EditorsPage() {
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [isAdmin, setIsAdmin] = useState(false);
+  const { confirm, dialog } = useConfirmDialog();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -144,7 +146,11 @@ export default function EditorsPage() {
   };
 
   const handleDeleteEditor = async (editor) => {
-    if (!editor?.id || !window.confirm(`Delete the editor account for ${editor.email}?`)) {
+    if (!editor?.id || !await confirm({
+      title: "Delete editor account?",
+      message: `The account for ${editor.email} will be permanently deleted.`,
+      confirmLabel: "Delete account",
+    })) {
       return;
     }
 
@@ -185,11 +191,14 @@ export default function EditorsPage() {
 
     const requiresMFA = !editor.mfaEnabled;
 
-    if (!window.confirm(
-      requiresMFA
-        ? `Require ${editor.email} to change their password and enable 2FA before continuing?`
-        : `Require ${editor.email} to change their password before continuing?`
-    )) {
+    if (!await confirm({
+      title: requiresMFA ? "Require password and 2FA?" : "Require password change?",
+      message: requiresMFA
+        ? `${editor.email} will need to change their password and enable 2FA.`
+        : `${editor.email} will need to change their password before continuing.`,
+      confirmLabel: "Continue",
+      danger: false,
+    })) {
       return;
     }
 
@@ -241,7 +250,7 @@ export default function EditorsPage() {
   }
 
   return (
-    <main className="min-h-screen px-6 py-16 sm:px-10">
+    <main className="min-h-screen px-6 py-16 sm:px-10">{dialog}
       <div className="mx-auto max-w-5xl">
         <button
           onClick={() => router.push("/admin")}

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useConfirmDialog } from "@/src/components/Admin/ConfirmDialog";
 
 export default function FormsAdminPage() {
   const router = useRouter();
@@ -10,6 +11,7 @@ export default function FormsAdminPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [sharedFormId, setSharedFormId] = useState(null);
+  const { confirm, dialog } = useConfirmDialog();
 
   const load = () => fetch("/api/admin/forms", { cache: "no-store" })
     .then(async (response) => {
@@ -25,7 +27,11 @@ export default function FormsAdminPage() {
   }, []);
 
   const remove = async (form) => {
-    if (!window.confirm(`Delete ${form.title}?`)) return;
+    if (!await confirm({
+      title: "Delete form?",
+      message: `The form "${form.title}" will be permanently deleted.`,
+      confirmLabel: "Delete form",
+    })) return;
     const response = await fetch(`/api/admin/forms/${form.id}`, { method: "DELETE" });
     if (response.ok) setForms((current) => current.filter((item) => item.id !== form.id));
     else setError("Could not delete form.");
@@ -57,6 +63,7 @@ export default function FormsAdminPage() {
 
   return (
     <main className="min-h-screen px-6 py-12 sm:px-10">
+      {dialog}
       <div className="mx-auto max-w-6xl">
         <button type="button" onClick={() => router.push("/admin")} className="text-sm opacity-60 hover:opacity-100">Back to Dashboard</button>
         <div className="mt-8 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">

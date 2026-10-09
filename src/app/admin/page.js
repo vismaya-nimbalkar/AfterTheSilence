@@ -8,6 +8,43 @@ import BannedIPs from "@/src/components/Admin/BannedIPs";
 import { getUserRole } from "@/src/lib/admin/permissions";
 import { createAdminClient } from "@/src/lib/supabase/admin";
 
+function AdminPostCard({ post }) {
+  return (
+    <div className="rounded-2xl border border-dark/20 p-6">
+      <div className="flex flex-col gap-5 sm:flex-row sm:flex-nowrap sm:items-center sm:justify-between">
+        <div className="min-w-0">
+          <h3 className="break-words text-xl font-semibold">{post.title}</h3>
+          <div className="mt-2 flex flex-wrap gap-3 text-sm opacity-60">
+            <span>{post.is_published ? "Published" : "Draft"}</span>
+            {post.author && <span>• {post.author}</span>}
+            {(post.published_at || post.created_at) && (
+              <span>• {new Date(post.published_at || post.created_at).toLocaleDateString()}</span>
+            )}
+          </div>
+        </div>
+
+        <div className="flex shrink-0 flex-nowrap gap-3 whitespace-nowrap">
+          <Link
+            href={`/admin/posts/${post.id}/edit`}
+            className="rounded-lg border border-dark/20 px-4 py-2 text-sm font-medium transition-colors hover:bg-dark/5"
+          >
+            Edit
+          </Link>
+          <DeletePostButton postId={post.id} />
+          <Link
+            href={`/blogs/${post.slug}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="rounded-lg border border-dark/20 px-4 py-2 text-sm font-medium transition-colors hover:bg-dark/5"
+          >
+            View
+          </Link>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default async function AdminPage() {
   const supabase = await createClient();
 
@@ -34,8 +71,9 @@ export default async function AdminPage() {
   let postsQuery = supabase
     .from("posts")
     .select("*")
-    .order("created_at", {
+    .order("published_at", {
       ascending: false,
+      nullsFirst: false,
     });
 
   if (!isAdmin) {
@@ -90,6 +128,11 @@ export default async function AdminPage() {
       (comment) => comment.status === "pending"
     ) || [];
 
+  const publishedPosts = (posts || []).filter((post) => post.is_published);
+  const draftPosts = (posts || [])
+    .filter((post) => !post.is_published)
+    .sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+
   return (
     <main className="min-h-screen px-6 py-16 sm:px-10">
       <div className="mx-auto max-w-6xl">
@@ -102,11 +145,7 @@ export default async function AdminPage() {
           className="
             flex
             flex-col
-            gap-6
-            sm:flex-row
-            sm:flex-nowrap
-            sm:items-center
-            sm:justify-between
+            gap-8
           "
         >
 
@@ -131,7 +170,7 @@ export default async function AdminPage() {
               HEADER ACTIONS
           ===================================================== */}
 
-          <div className="flex min-w-max flex-col gap-3 sm:flex-row sm:flex-nowrap">
+          <div className="flex w-full flex-wrap items-center gap-3 border-t border-dark/10 pt-6">
 
             {/* Security */}
 
@@ -378,11 +417,11 @@ export default async function AdminPage() {
           >
 
             <h2 className="text-2xl font-semibold">
-              Posts
+              Published Posts
             </h2>
 
             <span className="text-sm opacity-60">
-              {posts?.length || 0} total
+              {publishedPosts.length} total
             </span>
 
           </div>
@@ -420,7 +459,7 @@ export default async function AdminPage() {
           =================================================== */}
 
           {!postsError &&
-            (!posts || posts.length === 0) && (
+            publishedPosts.length === 0 && (
               <div
                 className="
                   rounded-2xl
@@ -467,153 +506,26 @@ export default async function AdminPage() {
           =================================================== */}
 
           <div className="space-y-4">
-
-            {posts?.map((post) => (
-
-              <div
-                key={post.id}
-                className="
-                  rounded-2xl
-                  border
-                  border-dark/20
-                  p-6
-                "
-              >
-
-                <div
-                  className="
-                    flex
-                    flex-col
-                    gap-5
-                    sm:flex-row
-                    sm:items-center
-                    sm:justify-between
-                  "
-                >
-
-                  {/* ==================================================
-                      POST INFORMATION
-                  =================================================== */}
-
-                  <div className="min-w-0">
-
-                    <h3
-                      className="
-                        break-words
-                        text-xl
-                        font-semibold
-                      "
-                    >
-                      {post.title}
-                    </h3>
-
-                    <div
-                      className="
-                        mt-2
-                        flex
-                        flex-wrap
-                        gap-3
-                        text-sm
-                        opacity-60
-                      "
-                    >
-
-                      <span>
-                        {post.is_published
-                          ? "Published"
-                          : "Draft"}
-                      </span>
-
-                      {post.author && (
-                        <span>
-                          • {post.author}
-                        </span>
-                      )}
-
-                      {post.created_at && (
-                        <span>
-                          •{" "}
-                          {new Date(
-                            post.created_at
-                          ).toLocaleDateString()}
-                        </span>
-                      )}
-
-                    </div>
-
-                  </div>
-
-
-                  {/* ==================================================
-                      POST ACTIONS
-                  =================================================== */}
-
-                  <div
-                    className="
-                      flex
-                      flex-wrap
-                      gap-3
-                    "
-                  >
-
-                    {/* Edit */}
-
-                    <Link
-                      href={`/admin/posts/${post.id}/edit`}
-                      className="
-                        rounded-lg
-                        border
-                        border-dark/20
-                        px-4
-                        py-2
-                        text-sm
-                        font-medium
-                        transition-colors
-                        hover:bg-dark/5
-                      "
-                    >
-                      Edit
-                    </Link>
-
-
-                    {/* Delete */}
-
-                    <DeletePostButton
-                      postId={post.id}
-                    />
-
-
-                    {/* View */}
-
-                    <Link
-                      href={`/blogs/${post.slug}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="
-                        rounded-lg
-                        border
-                        border-dark/20
-                        px-4
-                        py-2
-                        text-sm
-                        font-medium
-                        transition-colors
-                        hover:bg-dark/5
-                      "
-                    >
-                      View
-                    </Link>
-
-                  </div>
-
-                </div>
-
-              </div>
-
-            ))}
-
+            {publishedPosts.map((post) => <AdminPostCard key={post.id} post={post} />)}
           </div>
 
+        </section>
+
+        <section className="mt-20">
+          <div className="mb-6 flex items-center justify-between">
+            <h2 className="text-2xl font-semibold">Drafts</h2>
+            <span className="text-sm opacity-60">{draftPosts.length} total</span>
+          </div>
+
+          {draftPosts.length === 0 ? (
+            <div className="rounded-2xl border border-dark/20 p-8 text-center text-sm opacity-60">
+              No draft posts.
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {draftPosts.map((post) => <AdminPostCard key={post.id} post={post} />)}
+            </div>
+          )}
         </section>
 
       </div>

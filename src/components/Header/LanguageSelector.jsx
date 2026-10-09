@@ -5,10 +5,6 @@ import { useEffect, useRef, useState } from "react";
 // Map modern ISO/BCP-47 codes to legacy Google Translate Element codes
 const LEGACY_CODE_MAP = {
   he: "iw",   // Hebrew
-  id: "in",   // Indonesian
-  jw: "jv",   // Javanese
-  yi: "ji",   // Yiddish
-  gom: "kok", // Konkani
 };
 
 // Reverse map to restore active state properly on page reload
@@ -25,10 +21,8 @@ const LANGUAGE_GROUPS = [
       ["gu", "Gujarati", "ગુજરાતી"],
       ["hi", "Hindi", "हिन्दी"],
       ["kn", "Kannada", "ಕನ್ನಡ"],
-      ["ks", "Kashmiri", "کٲشُر"],
       ["gom", "Konkani", "कोंकणी"],
       ["ml", "Malayalam", "മലയാളം"],
-      ["mni", "Manipuri", "ꯇꯩ ꯂꯣꯟ"],
       ["mr", "Marathi", "मराठी"],
       ["ne", "Nepali", "नेपाली"],
       ["or", "Odia", "ଓଡ଼ିଆ"],
@@ -214,7 +208,15 @@ export default function LanguageSelector({
       };
     }
 
-    window.googleTranslateElementInit = () => {
+    let initialized = false;
+
+    const initializeGoogleTranslate = () => {
+      if (initialized || !window.google?.translate?.TranslateElement) return;
+
+      const target = document.getElementById("google_translate_element");
+      if (!target) return;
+
+      initialized = true;
       if (!window.google?.translate?.TranslateElement) return;
 
       new window.google.translate.TranslateElement(
@@ -229,11 +231,20 @@ export default function LanguageSelector({
       );
     };
 
-    if (
-      !document.querySelector(
-        'script[src*="translate.google.com/translate_a/element.js"]'
-      )
-    ) {
+    window.googleTranslateElementInit = initializeGoogleTranslate;
+
+    const retryInitialization = window.setInterval(() => {
+      if (window.google?.translate?.TranslateElement) {
+        initializeGoogleTranslate();
+        if (initialized) window.clearInterval(retryInitialization);
+      }
+    }, 250);
+
+    const existingScript = document.querySelector(
+      'script[src*="translate.google.com/translate_a/element.js"]'
+    );
+
+    if (!existingScript) {
       const script = document.createElement("script");
 
       script.src =
@@ -241,12 +252,13 @@ export default function LanguageSelector({
 
       script.async = true;
       document.body.appendChild(script);
-    } else if (window.google?.translate?.TranslateElement) {
-      window.googleTranslateElementInit();
+    } else {
+      initializeGoogleTranslate();
     }
 
     return () => {
       bannerObserver.disconnect();
+      window.clearInterval(retryInitialization);
       bannerStyle.remove();
       document.removeEventListener("mousedown", closeMenu);
       delete window.googleTranslateElementInit;
@@ -344,5 +356,5 @@ export default function LanguageSelector({
         <div id="google_translate_element" aria-hidden="true" />
       )}
     </div>
-  );f
+  );
 }

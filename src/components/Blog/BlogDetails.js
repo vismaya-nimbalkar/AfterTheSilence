@@ -55,12 +55,6 @@ const BlogDetails = ({ blog }) => {
           : "Date not available"}
       </time>
 
-      {blog.lastEditedAt && (
-        <time className="whitespace-nowrap text-left text-sm sm:text-base">
-          Last edited {format(parseISO(blog.lastEditedAt), "LLLL d, yyyy")}
-        </time>
-      )}
-
       {/* Author */}
       {blog.author && (
         <span className="whitespace-nowrap text-center md:text-left">

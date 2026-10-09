@@ -27,7 +27,6 @@ export default function EditPostPage() {
   const [existingImageUrl, setExistingImageUrl] = useState("");
   const [imageLabel, setImageLabel] = useState("No cover image selected yet");
   const [isPublished, setIsPublished] = useState(false);
-  const [lastEditedAt, setLastEditedAt] = useState("");
   const [isAdmin, setIsAdmin] = useState(false);
 
   const supabase = createClient();
@@ -73,7 +72,6 @@ export default function EditPostPage() {
         post.image_url ? "Current cover image selected" : "No cover image selected yet"
       );
       setIsPublished(post.is_published || false);
-      setLastEditedAt(post.last_edited_at || "");
 
       setLoading(false);
     }
@@ -153,7 +151,6 @@ export default function EditPostPage() {
       tags: tagArray,
       image_url: nextImageUrl,
       is_published: publish,
-      last_edited_at: lastEditedAt || null,
       updated_at: new Date().toISOString(),
     };
 
@@ -335,22 +332,6 @@ export default function EditPostPage() {
             <label htmlFor="published">
               Published
             </label>
-          </div>
-
-          <div>
-            <label className="mb-2 block text-sm font-medium" htmlFor="last-edited-at">
-              Last edited date
-            </label>
-            <input
-              id="last-edited-at"
-              type="date"
-              value={lastEditedAt}
-              onChange={(event) => setLastEditedAt(event.target.value)}
-              className="rounded-lg border border-dark/20 bg-transparent px-4 py-3 outline-none"
-            />
-            <p className="mt-2 text-sm opacity-50">
-              This is shown to readers and does not change the publication date.
-            </p>
           </div>
 
           <div className="flex flex-col gap-3 sm:flex-row">

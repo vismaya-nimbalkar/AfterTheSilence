@@ -207,9 +207,8 @@ export default function LoginPage() {
           return;
         }
 
-        await checkMFAAndContinue(
-          supabase
-        );
+        router.replace("/admin");
+        router.refresh();
 
       } catch (error) {
         console.error(

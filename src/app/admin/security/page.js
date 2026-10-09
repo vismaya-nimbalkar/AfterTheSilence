@@ -6,6 +6,7 @@ import Image from "next/image";
 import { createClient } from "@/src/lib/supabase/client";
 import { getUserRole } from "@/src/lib/admin/permissions";
 import LogoutButton from "@/src/components/Admin/LogoutButton";
+import { useConfirmDialog } from "@/src/components/Admin/ConfirmDialog";
 
 export default function AdminSecurityPage() {
   const router = useRouter();
@@ -21,6 +22,7 @@ export default function AdminSecurityPage() {
   const [forcedSecuritySetup, setForcedSecuritySetup] = useState(false);
   const [passwordChanged, setPasswordChanged] = useState(true);
   const [error, setError] = useState("");
+  const { confirm, dialog } = useConfirmDialog();
 
   // ============================================================
   // CHANGE PASSWORD
@@ -653,10 +655,11 @@ export default function AdminSecurityPage() {
       return;
     }
 
-    const confirmed =
-      window.confirm(
-        "Are you sure you want to disable two-factor authentication?"
-      );
+    const confirmed = await confirm({
+      title: "Disable two-factor authentication?",
+      message: "Your account will no longer require two-factor authentication.",
+      confirmLabel: "Disable 2FA",
+    });
 
     if (!confirmed) {
       return;
@@ -814,10 +817,11 @@ export default function AdminSecurityPage() {
       return;
     }
 
-    const confirmed =
-      window.confirm(
-        "Are you sure you want to remove this passkey?"
-      );
+    const confirmed = await confirm({
+      title: "Remove passkey?",
+      message: "This passkey will no longer be able to sign you in.",
+      confirmLabel: "Remove passkey",
+    });
 
     if (!confirmed) {
       return;
@@ -913,7 +917,7 @@ export default function AdminSecurityPage() {
   // ============================================================
 
   return (
-    <main className="min-h-screen px-6 py-16 sm:px-10">
+    <main className="min-h-screen px-6 py-16 sm:px-10">{dialog}
       <div className="mx-auto max-w-3xl">
 
         {/* HEADER */}

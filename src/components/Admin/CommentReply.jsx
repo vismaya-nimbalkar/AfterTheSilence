@@ -73,7 +73,7 @@ export default function CommentReply({
   };
 
   return (
-    <div className="mt-4">
+    <div className={open ? "mt-3 w-full" : "mt-0"}>
 
       {!open && (
         <button
@@ -90,6 +90,8 @@ export default function CommentReply({
             py-2
             text-sm
             font-medium
+            text-center
+            whitespace-nowrap
             transition-colors
             hover:bg-dark/5
           "
