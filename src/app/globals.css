@@ -1,3 +1,4 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -35,8 +36,8 @@ body > .skiptranslate {
   display: none !important;
 }
 
-html{
-    scroll-behavior: smooth;
+html {
+  scroll-behavior: smooth;
 }
 
 html.dark body {
@@ -44,6 +45,47 @@ html.dark body {
   color: #fff;
 }
 
+/* Rich-text editor text in dark mode */
+html.dark .tiptap,
+html.dark .tiptap p,
+html.dark .tiptap h1,
+html.dark .tiptap h2,
+html.dark .tiptap h3,
+html.dark .tiptap h4,
+html.dark .tiptap h5,
+html.dark .tiptap h6,
+html.dark .tiptap li,
+html.dark .tiptap blockquote,
+html.dark .tiptap strong,
+html.dark .tiptap em,
+html.dark .tiptap ul,
+html.dark .tiptap ol {
+  color: #f5f5f5 !important;
+}
+
+html.dark .tiptap a {
+  color: #93c5fd !important;
+}
+
+html.dark .tiptap pre,
+html.dark .tiptap code {
+  color: #f5f5f5 !important;
+}
+
+/* Checkboxes in dark mode: preserve the native tick */
+html.dark input[type="checkbox"] {
+  appearance: auto !important;
+  -webkit-appearance: checkbox !important;
+  accent-color: #3c3b3d !important;
+  background-color: #fff !important;
+  border: 2px solid #fff !important;
+}
+
+html.dark input[type="checkbox"]:checked {
+  accent-color: #3c3b3d !important;
+}
+
+/* Other dark-mode styling */
 html.dark [class*="bg-light"]:not([class*="dark:bg-light"]) {
   background-color: #3c3b3d !important;
 }
@@ -65,78 +107,74 @@ html.dark .about-shield {
   filter: brightness(0) saturate(100%) invert(94%) sepia(13%) saturate(369%) hue-rotate(7deg) brightness(105%) contrast(102%);
 }
 
-h1>a>.icon.icon-link:before,
-h2>a>.icon.icon-link:before,
-h3>a>.icon.icon-link:before{
-content: "#";
-font-size: 0.8rem;
+h1 > a > .icon.icon-link:before,
+h2 > a > .icon.icon-link:before,
+h3 > a > .icon.icon-link:before {
+  content: "#";
+  font-size: 0.8rem;
 }
 
-h2 > a, h3>a {
-    text-decoration: none !important;
+h2 > a,
+h3 > a {
+  text-decoration: none !important;
 }
 
 code {
-    counter-reset: line;
-  }
-   
-  code > [data-line]::before {
-    counter-increment: line;
-    content: counter(line);
-   
-    /* Other styling */
-    display: inline-block;
-    width: 1rem;
-    margin-right: 2rem;
-    text-align: right;
-    color: gray;
-  }
-   
-  code[data-line-numbers-max-digits='2'] > [data-line]::before {
-    width: 2rem;
-  }
-   
-  code[data-line-numbers-max-digits='3'] > [data-line]::before {
-    width: 3rem;
-  }
+  counter-reset: line;
+}
 
-  [data-highlighted-line]{
-    background-color: rgba(255,255,255,0.1) !important;
-    padding: 2px;
-    padding-left: 0;
-    padding-right: 4px;
-    border-radius: 2px;
-    border-left: 2px solid #7B00D3;
-  }
+code > [data-line]::before {
+  counter-increment: line;
+  content: counter(line);
+  display: inline-block;
+  width: 1rem;
+  margin-right: 2rem;
+  text-align: right;
+  color: gray;
+}
 
-  [data-highlighted-chars]{
-    background-color: rgba(255,255,255,0.2) !important;
-    padding: 2px;
-    border-radius: 2px;
-  }
+code[data-line-numbers-max-digits='2'] > [data-line]::before {
+  width: 2rem;
+}
 
+code[data-line-numbers-max-digits='3'] > [data-line]::before {
+  width: 3rem;
+}
 
-  [data-rehype-pretty-code-fragment]{
-    position: relative;
-  }
+[data-highlighted-line] {
+  background-color: rgba(255, 255, 255, 0.1) !important;
+  padding: 2px;
+  padding-left: 0;
+  padding-right: 4px;
+  border-radius: 2px;
+  border-left: 2px solid #7B00D3;
+}
 
-  [data-rehype-pretty-code-title]{
-    position: absolute;
-    right: 0;
-    background-color: #7B00D3;
-    color: #fff;
-    padding: 4px 8px;
-    font-size: 1rem;
-    border-end-start-radius: 4px;
-  }
+[data-highlighted-chars] {
+  background-color: rgba(255, 255, 255, 0.2) !important;
+  padding: 2px;
+  border-radius: 2px;
+}
 
-  [data-rehype-pretty-code-caption]{
-    position: absolute;
-    top: 100%;
-    width: 100%;
-    text-align: center;
-    font-size: 1rem;
-    color: #747474;
-  }
+[data-rehype-pretty-code-fragment] {
+  position: relative;
+}
 
+[data-rehype-pretty-code-title] {
+  position: absolute;
+  right: 0;
+  background-color: #7B00D3;
+  color: #fff;
+  padding: 4px 8px;
+  font-size: 1rem;
+  border-end-start-radius: 4px;
+}
 
+[data-rehype-pretty-code-caption] {
+  position: absolute;
+  top: 100%;
+  width: 100%;
+  text-align: center;
+  font-size: 1rem;
+  color: #747474;
+}

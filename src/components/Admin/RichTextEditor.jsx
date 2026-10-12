@@ -663,7 +663,7 @@ export default function RichTextEditor({
     editorProps: {
       attributes: {
         class:
-          "prose prose-neutral max-w-none min-h-[650px] px-6 py-5 outline-none prose-headings:font-semibold prose-p:leading-7 prose-blockquote:border-l-2 prose-blockquote:border-dark/30 prose-blockquote:pl-5 prose-blockquote:italic prose-a:underline prose-a:underline-offset-2",
+          "prose max-w-none min-h-[650px] px-6 py-5 outline-none !text-gray-100 prose-headings:!text-gray-100 prose-p:!text-gray-100 prose-li:!text-gray-100 prose-strong:!text-gray-100 prose-blockquote:!text-gray-100 prose-a:!text-sky-300",
       },
 
       /*

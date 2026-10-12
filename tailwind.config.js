@@ -42,7 +42,22 @@ module.exports = {
     },
   },
   plugins: [
-    require('@tailwindcss/forms'),
+    require('@tailwindcss/forms')({
+      strategy: 'base', // applies basic reset to all standard form controls globally
+    }),
     require('@tailwindcss/typography'),
+    // Global plugin override for checkboxes
+    function ({ addBase, theme }) {
+      addBase({
+        'input[type="checkbox"]': {
+          borderRadius: theme('borderRadius.md', '0.375rem'),
+          color: theme('colors.dark', '#3c3b3d'),
+          '&:focus': {
+            '--tw-ring-color': theme('colors.dark', '#3c3b3d'),
+            boxShadow: 'none',
+          },
+        },
+      });
+    },
   ],
 };
