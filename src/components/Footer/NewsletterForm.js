@@ -1,7 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { createClient } from "@/src/lib/supabase/client";
+
+const DISCLAIMER_STORAGE_KEY = "afterTheSilenceDisclaimerAccepted";
 
 export default function NewsletterForm() {
   const supabase = createClient();
@@ -9,6 +11,18 @@ export default function NewsletterForm() {
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState("");
   const [loading, setLoading] = useState(false);
+  const [isAccepted, setIsAccepted] = useState(false);
+
+  useEffect(() => {
+    try {
+      const hasAccepted = sessionStorage.getItem(DISCLAIMER_STORAGE_KEY);
+      if (hasAccepted === "true") {
+        setIsAccepted(true);
+      }
+    } catch (error) {
+      console.error("Could not access sessionStorage:", error);
+    }
+  }, []);
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -48,6 +62,11 @@ export default function NewsletterForm() {
 
     setLoading(false);
   };
+
+  // Do not display the form until the user has accepted the gate
+  if (!isAccepted) {
+    return null;
+  }
 
   return (
     <div className="mt-8 w-full max-w-xl px-6">

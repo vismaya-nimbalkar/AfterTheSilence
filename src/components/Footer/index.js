@@ -21,7 +21,7 @@ const Footer = async () => {
       {/* Newsletter */}
       <NewsletterForm />
 
-      {/* Footer Links */}
+      {/* Footer Contact */}
       {(settings.contact_phone || settings.contact_email) && (
         <div className="mt-8 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 px-6 text-sm font-medium">
           {settings.contact_phone && (
@@ -67,6 +67,32 @@ const Footer = async () => {
         >
           Portfolio
         </a>
+
+        {/* Privacy Policy */}
+        <Link
+          href="/privacy-policy"
+          className="
+            opacity-80
+            transition-opacity
+            hover:opacity-100
+            hover:underline
+          "
+        >
+          Privacy Policy
+        </Link>
+
+        {/* Terms and Conditions */}
+        <Link
+          href="/terms"
+          className="
+            opacity-80
+            transition-opacity
+            hover:opacity-100
+            hover:underline
+          "
+        >
+          Terms &amp; Conditions
+        </Link>
 
         {/* Disclaimer */}
         <Link

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
+import Link from "next/link";
 
 const DISCLAIMER_STORAGE_KEY = "afterTheSilenceDisclaimerAccepted";
 
@@ -17,18 +18,13 @@ export default function DisclaimerGate({ children }) {
    */
   useEffect(() => {
     try {
-      const hasAccepted = sessionStorage.getItem(
-        DISCLAIMER_STORAGE_KEY
-      );
+      const hasAccepted = sessionStorage.getItem(DISCLAIMER_STORAGE_KEY);
 
       if (hasAccepted === "true") {
         setAccepted(true);
       }
     } catch (error) {
-      console.error(
-        "Could not access sessionStorage:",
-        error
-      );
+      console.error("Could not access sessionStorage:", error);
     }
 
     setLoaded(true);
@@ -38,21 +34,21 @@ export default function DisclaimerGate({ children }) {
     if (!checked) return;
 
     try {
-      sessionStorage.setItem(
-        DISCLAIMER_STORAGE_KEY,
-        "true"
-      );
+      sessionStorage.setItem(DISCLAIMER_STORAGE_KEY, "true");
     } catch (error) {
-      console.error(
-        "Could not save disclaimer acceptance:",
-        error
-      );
+      console.error("Could not save disclaimer acceptance:", error);
     }
 
     setAccepted(true);
   };
 
-  if (pathname?.startsWith("/forms/")) {
+  // Allow unrestricted access to forms and legal pages so users can read them
+  if (
+    pathname?.startsWith("/forms/") ||
+    pathname === "/privacy-policy" ||
+    pathname === "/terms" ||
+    pathname === "/disclaimer"
+  ) {
     return children;
   }
 
@@ -70,34 +66,25 @@ export default function DisclaimerGate({ children }) {
   return (
     <>
       <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-white p-4 dark:bg-dark sm:p-6">
-
         <div className="flex h-full max-h-[900px] w-full max-w-5xl flex-col rounded-2xl border border-black/10 bg-white text-dark shadow-2xl dark:border-light/20 dark:bg-[#f5f5f3] dark:text-dark">
-
           {/* Header */}
           <div className="border-b border-black/10 px-6 py-6 sm:px-10">
-
             <h1 className="text-3xl font-bold tracking-tight text-black sm:text-4xl">
-              DISCLAIMER
+              TERMS &amp; DISCLAIMER
             </h1>
-
             <p className="mt-3 text-sm font-medium text-gray-500 dark:text-dark/60">
-              Last updated December 25, 2025
+              Last updated October 13, 2026
             </p>
-
           </div>
 
-          {/* Disclaimer content */}
+          {/* Content scroll area */}
           <div className="flex-1 overflow-y-auto px-6 py-6 sm:px-10 sm:py-8">
-
             <section>
-
               <h2 className="mb-4 text-xl font-bold tracking-tight text-black sm:text-2xl">
                 WEBSITE DISCLAIMER
               </h2>
-
               <p className="text-sm leading-7 text-gray-600 dark:text-dark/80 sm:text-base">
-                The information provided by Vismaya Nimbalkar &amp; After The
-                Silence (&quot;we&quot;, &quot;us&quot;, or &quot;our&quot;) on{" "}
+                The information provided by Vismaya Nimbalkar &amp; After The Silence (&quot;we&quot;, &quot;us&quot;, or &quot;our&quot;) on{" "}
                 <a
                   href="https://afterthesilence.org"
                   target="_blank"
@@ -106,86 +93,57 @@ export default function DisclaimerGate({ children }) {
                 >
                   https://afterthesilence.org
                 </a>{" "}
-                (the &quot;Site&quot;) is for general informational purposes
-                only. All information on the Site is provided in good faith,
-                however we make no representation or warranty of any kind,
-                express or implied, regarding the accuracy, adequacy,
-                validity, reliability, availability, or completeness of any
-                information on the Site. UNDER NO CIRCUMSTANCES SHALL WE HAVE
-                ANY LIABILITY TO YOU FOR ANY LOSS OR DAMAGE OF ANY KIND
-                INCURRED AS A RESULT OF THE USE OF THE SITE OR RELIANCE ON ANY
-                INFORMATION PROVIDED ON THE SITE. YOUR USE OF THE SITE AND
-                YOUR RELIANCE ON ANY INFORMATION ON THE SITE IS SOLELY AT YOUR
-                OWN RISK.
+                (the &quot;Site&quot;) is for general informational purposes only. All information on the Site is provided in good faith, however we make no representation or warranty of any kind, express or implied, regarding the accuracy, adequacy, validity, reliability, availability, or completeness of any information on the Site. UNDER NO CIRCUMSTANCES SHALL WE HAVE ANY LIABILITY TO YOU FOR ANY LOSS OR DAMAGE OF ANY KIND INCURRED AS A RESULT OF THE USE OF THE SITE OR RELIANCE ON ANY INFORMATION PROVIDED ON THE SITE. YOUR USE OF THE SITE AND YOUR RELIANCE ON ANY INFORMATION ON THE SITE IS SOLELY AT YOUR OWN RISK.
               </p>
-
             </section>
 
             <section className="mt-10">
-
               <h2 className="mb-4 text-xl font-bold tracking-tight text-black sm:text-2xl">
                 EXTERNAL LINKS DISCLAIMER
               </h2>
-
               <p className="text-sm leading-7 text-gray-600 dark:text-dark/80 sm:text-base">
-                The Site may contain (or you may be sent through the Site)
-                links to other websites or content belonging to or originating
-                from third parties or links to websites and features in
-                banners or other advertising. Such external links are not
-                investigated, monitored, or checked for accuracy, adequacy,
-                validity, reliability, availability, or completeness by us. WE
-                DO NOT WARRANT, ENDORSE, GUARANTEE, OR ASSUME RESPONSIBILITY
-                FOR THE ACCURACY OR RELIABILITY OF ANY INFORMATION OFFERED BY
-                THIRD-PARTY WEBSITES LINKED THROUGH THE SITE OR ANY WEBSITE OR
-                FEATURE LINKED IN ANY BANNER OR OTHER ADVERTISING. WE WILL NOT
-                BE A PARTY TO OR IN ANY WAY BE RESPONSIBLE FOR MONITORING ANY
-                TRANSACTION BETWEEN YOU AND THIRD-PARTY PROVIDERS OF PRODUCTS
-                OR SERVICES.
+                The Site may contain (or you may be sent through the Site) links to other websites or content belonging to or originating from third parties or links to websites and features in banners or other advertising. Such external links are not investigated, monitored, or checked for accuracy, adequacy, validity, reliability, availability, or completeness by us. WE DO NOT WARRANT, ENDORSE, GUARANTEE, OR ASSUME RESPONSIBILITY FOR THE ACCURACY OR RELIABILITY OF ANY INFORMATION OFFERED BY THIRD-PARTY WEBSITES LINKED THROUGH THE SITE OR ANY WEBSITE OR FEATURE LINKED IN ANY BANNER OR OTHER ADVERTISING. WE WILL NOT BE A PARTY TO OR IN ANY WAY BE RESPONSIBLE FOR MONITORING ANY TRANSACTION BETWEEN YOU AND THIRD-PARTY PROVIDERS OF PRODUCTS OR SERVICES.
               </p>
-
             </section>
 
             <section className="mt-10">
-
               <h2 className="mb-4 text-xl font-bold tracking-tight text-black sm:text-2xl">
                 PROFESSIONAL DISCLAIMER
               </h2>
-
               <p className="text-sm leading-7 text-gray-600 dark:text-dark/80 sm:text-base">
-                The Site cannot and does not contain legal, medical advice.
-                The legal, medical information is provided for general
-                informational and educational purposes only and is not a
-                substitute for professional advice. Accordingly, before
-                taking any actions based upon such information, we encourage
-                you to consult with the appropriate professionals. We do not
-                provide any kind of legal, medical advice. THE USE OR RELIANCE
-                OF ANY INFORMATION CONTAINED ON THE SITE IS SOLELY AT YOUR OWN
-                RISK.
+                The Site cannot and does not contain legal or medical advice. The legal or medical information is provided for general informational and educational purposes only and is not a substitute for professional advice. Accordingly, before taking any actions based upon such information, we encourage you to consult with the appropriate professionals. We do not provide any kind of legal or medical advice. THE USE OR RELIANCE OF ANY INFORMATION CONTAINED ON THE SITE IS SOLELY AT YOUR OWN RISK.
               </p>
-
             </section>
-
           </div>
 
           {/* Consent area */}
           <div className="border-t border-black/10 bg-gray-50 px-6 py-6 dark:border-dark/20 dark:bg-[#f5f5f3] sm:px-10">
-
             <label className="flex cursor-pointer items-start gap-3">
-
               <input
                 type="checkbox"
                 checked={checked}
-                onChange={(e) =>
-                  setChecked(e.target.checked)
-                }
+                onChange={(e) => setChecked(e.target.checked)}
                 className="mt-1 h-5 w-5 shrink-0 cursor-pointer accent-black"
               />
-
               <span className="text-sm leading-6 text-gray-700 dark:text-dark">
-                I have read and understood this disclaimer and acknowledge
-                that I am accessing and using this website at my own risk.
+                I have read and understood this disclaimer, and I agree to the{" "}
+                <Link
+                  href="/terms"
+                  target="_blank"
+                  className="font-semibold text-blue-600 underline hover:text-blue-800"
+                >
+                  Terms &amp; Conditions
+                </Link>{" "}
+                and{" "}
+                <Link
+                  href="/privacy-policy"
+                  target="_blank"
+                  className="font-semibold text-blue-600 underline hover:text-blue-800"
+                >
+                  Privacy Policy
+                </Link>
+                . I acknowledge that I am accessing and using this website at my own risk.
               </span>
-
             </label>
 
             <button
@@ -210,11 +168,8 @@ export default function DisclaimerGate({ children }) {
             >
               I Agree &amp; Continue
             </button>
-
           </div>
-
         </div>
-
       </div>
     </>
   );
