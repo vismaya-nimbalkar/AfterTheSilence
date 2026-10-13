@@ -61,6 +61,9 @@ const Footer = async () => {
         <Link href="/terms" className="opacity-80 transition-opacity hover:opacity-100 hover:underline">
           Terms &amp; Conditions
         </Link>
+        <Link href="/ai-policy" className="opacity-80 transition-opacity hover:opacity-100 hover:underline">
+          AI Policy
+        </Link>
         <Link href="/disclaimer" className="opacity-80 transition-opacity hover:opacity-100 hover:underline">
           Disclaimer
         </Link>
