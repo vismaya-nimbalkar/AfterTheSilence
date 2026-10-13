@@ -20,6 +20,11 @@ export const DEFAULT_SITE_SETTINGS = {
   contact_email: "",
   about_heading: "No Longer Silent",
   about_body: DEFAULT_ABOUT_BODY,
+  github_url: "",
+  linkedin_url: "",
+  instagram_url: "",
+  reddit_url: "",
+  discord_url: "",
 };
 
 export function normalizeAboutBody(value) {
@@ -46,7 +51,7 @@ export function normalizeAboutBody(value) {
 export async function getSiteSettings(supabase) {
   const { data, error } = await supabase
     .from("site_settings")
-    .select("contact_phone, contact_email, about_heading, about_body")
+    .select("contact_phone, contact_email, about_heading, about_body, github_url, linkedin_url, instagram_url, reddit_url, discord_url")
     .eq("id", "global")
     .maybeSingle();
 
@@ -54,9 +59,7 @@ export async function getSiteSettings(supabase) {
 
   return {
     ...DEFAULT_SITE_SETTINGS,
-    contact_phone: data.contact_phone ?? DEFAULT_SITE_SETTINGS.contact_phone,
-    contact_email: data.contact_email ?? DEFAULT_SITE_SETTINGS.contact_email,
-    about_heading: data.about_heading ?? DEFAULT_SITE_SETTINGS.about_heading,
+    ...data,
     about_body: normalizeAboutBody(data.about_body),
   };
 }

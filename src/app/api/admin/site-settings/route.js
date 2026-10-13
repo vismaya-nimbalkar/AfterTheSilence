@@ -22,7 +22,7 @@ export async function GET() {
 
     const { data, error } = await createAdminClient()
       .from("site_settings")
-      .select("contact_phone, contact_email, about_heading, about_body")
+      .select("contact_phone, contact_email, about_heading, about_body, github_url, linkedin_url, instagram_url, reddit_url, discord_url")
       .eq("id", "global")
       .maybeSingle();
 
@@ -49,6 +49,13 @@ export async function PATCH(request) {
     const aboutHeading = String(body.about_heading || "").trim();
     const aboutBody = String(body.about_body || "").trim();
 
+    // Social Links
+    const githubUrl = String(body.github_url || "").trim();
+    const linkedinUrl = String(body.linkedin_url || "").trim();
+    const instagramUrl = String(body.instagram_url || "").trim();
+    const redditUrl = String(body.reddit_url || "").trim();
+    const discordUrl = String(body.discord_url || "").trim();
+
     if (contactEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactEmail)) {
       return NextResponse.json({ error: "Enter a valid email address." }, { status: 400 });
     }
@@ -61,12 +68,21 @@ export async function PATCH(request) {
         contact_email: contactEmail,
         about_heading: aboutHeading,
         about_body: normalizeAboutBody(aboutBody),
+        github_url: githubUrl,
+        linkedin_url: linkedinUrl,
+        instagram_url: instagramUrl,
+        reddit_url: redditUrl,
+        discord_url: discordUrl,
       }, { onConflict: "id" })
-      .select("contact_phone, contact_email, about_heading, about_body")
+      .select("contact_phone, contact_email, about_heading, about_body, github_url, linkedin_url, instagram_url, reddit_url, discord_url")
       .single();
 
     if (error) throw error;
-    return NextResponse.json({ ...DEFAULT_SITE_SETTINGS, ...data, about_body: normalizeAboutBody(data.about_body) });
+    return NextResponse.json({ 
+      ...DEFAULT_SITE_SETTINGS, 
+      ...data, 
+      about_body: normalizeAboutBody(data.about_body) 
+    });
   } catch (error) {
     console.error("Site settings PATCH error:", error);
     return NextResponse.json({ error: error?.message || "Could not save site settings." }, { status: 500 });
