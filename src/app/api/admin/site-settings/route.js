@@ -22,7 +22,7 @@ export async function GET() {
 
     const { data, error } = await createAdminClient()
       .from("site_settings")
-      .select("contact_phone, contact_email, about_heading, about_body, github_url, linkedin_url, instagram_url, reddit_url, discord_url")
+      .select("contact_phone, contact_email, about_heading, about_body, github_url, linkedin_url, instagram_url, reddit_url, discord_url, shop_enabled")
       .eq("id", "global")
       .maybeSingle();
 
@@ -55,6 +55,9 @@ export async function PATCH(request) {
     const instagramUrl = String(body.instagram_url || "").trim();
     const redditUrl = String(body.reddit_url || "").trim();
     const discordUrl = String(body.discord_url || "").trim();
+    if (typeof body.shop_enabled !== "boolean") {
+      return NextResponse.json({ error: "Shop visibility must be enabled or disabled." }, { status: 400 });
+    }
 
     if (contactEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactEmail)) {
       return NextResponse.json({ error: "Enter a valid email address." }, { status: 400 });
@@ -73,8 +76,9 @@ export async function PATCH(request) {
         instagram_url: instagramUrl,
         reddit_url: redditUrl,
         discord_url: discordUrl,
+        shop_enabled: body.shop_enabled,
       }, { onConflict: "id" })
-      .select("contact_phone, contact_email, about_heading, about_body, github_url, linkedin_url, instagram_url, reddit_url, discord_url")
+      .select("contact_phone, contact_email, about_heading, about_body, github_url, linkedin_url, instagram_url, reddit_url, discord_url, shop_enabled")
       .single();
 
     if (error) throw error;

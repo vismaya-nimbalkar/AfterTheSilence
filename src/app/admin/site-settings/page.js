@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import RichTextEditor from "@/src/components/Admin/RichTextEditor";
 
 export default function SiteSettingsPage() {
@@ -17,6 +18,7 @@ export default function SiteSettingsPage() {
     instagram_url: "",
     reddit_url: "",
     discord_url: "",
+    shop_enabled: true,
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -73,6 +75,33 @@ export default function SiteSettingsPage() {
         {message && <div className="mt-6 rounded-lg border border-green-500/30 bg-green-500/10 p-4 text-green-700">{message}</div>}
 
         <form onSubmit={saveSettings} className="mt-10 space-y-8">
+          <section className="rounded-2xl border border-dark/20 p-6">
+            <h2 className="text-2xl font-bold">Shop visibility</h2>
+            <p className="mt-2 text-sm opacity-60">Turn off public shop pages and checkout without removing your products.</p>
+            <label className="mt-5 flex items-start gap-3 text-sm">
+              <input
+                type="checkbox"
+                checked={form.shop_enabled !== false}
+                onChange={(event) => updateField("shop_enabled", event.target.checked)}
+                className="mt-1"
+              />
+              <span>
+                <span className="block font-semibold">Shop is enabled</span>
+                <span className="mt-1 block text-xs opacity-60">When disabled, visitors cannot browse products or start checkout.</span>
+              </span>
+            </label>
+            {form.shop_enabled === false && (
+              <Link
+                href="/shop?preview=1"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-5 inline-flex rounded-lg border border-dark/20 px-4 py-2.5 text-sm font-medium hover:bg-dark/5"
+              >
+                Preview shop as admin
+              </Link>
+            )}
+          </section>
+
           <section className="rounded-2xl border border-dark/20 p-6">
             <h2 className="text-2xl font-bold">About page</h2>
             <div className="mt-5 space-y-5">

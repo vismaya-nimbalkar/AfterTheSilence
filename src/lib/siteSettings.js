@@ -25,6 +25,7 @@ export const DEFAULT_SITE_SETTINGS = {
   instagram_url: "",
   reddit_url: "",
   discord_url: "",
+  shop_enabled: true,
 };
 
 export function normalizeAboutBody(value) {
@@ -51,7 +52,7 @@ export function normalizeAboutBody(value) {
 export async function getSiteSettings(supabase) {
   const { data, error } = await supabase
     .from("site_settings")
-    .select("contact_phone, contact_email, about_heading, about_body, github_url, linkedin_url, instagram_url, reddit_url, discord_url")
+    .select("contact_phone, contact_email, about_heading, about_body, github_url, linkedin_url, instagram_url, reddit_url, discord_url, shop_enabled")
     .eq("id", "global")
     .maybeSingle();
 
@@ -62,4 +63,15 @@ export async function getSiteSettings(supabase) {
     ...data,
     about_body: normalizeAboutBody(data.about_body),
   };
+}
+
+export async function getShopEnabled(supabase) {
+  const { data, error } = await supabase
+    .from("site_settings")
+    .select("shop_enabled")
+    .eq("id", "global")
+    .maybeSingle();
+
+  if (error) throw error;
+  return data?.shop_enabled !== false;
 }

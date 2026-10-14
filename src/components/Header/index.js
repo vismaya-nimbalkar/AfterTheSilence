@@ -12,6 +12,20 @@ import LanguageSelector from "./LanguageSelector";
 const Header = ({ travelEnabled = true }) => {
   const [click, setClick] = useState(false);
   const [mode, setMode] = useThemeSwitch();
+  const [shopEnabled, setShopEnabled] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/site-status", { cache: "no-store" })
+      .then(async (response) => {
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "Could not load site status.");
+        setShopEnabled(data.shop_enabled !== false);
+      })
+      .catch((error) => {
+        console.error("Could not load shop visibility:", error);
+        setShopEnabled(false);
+      });
+  }, []);
 
   const toggle = () => {
     setClick(!click);
@@ -100,7 +114,7 @@ const Header = ({ travelEnabled = true }) => {
             py-2
             bg-dark
             text-light
-              dark:bg-[#f5f5f3]
+            dark:bg-[#f5f5f3]
             dark:text-dark
             rounded-full
             text-sm
@@ -270,6 +284,12 @@ const Header = ({ travelEnabled = true }) => {
           </Link>
         )}
 
+        {shopEnabled && (
+          <Link href="/shop" className="mx-2" onClick={() => setClick(false)}>
+            Shop
+          </Link>
+        )}
+
         {/* Login */}
 
         <Link
@@ -390,6 +410,12 @@ const Header = ({ travelEnabled = true }) => {
         {travelEnabled && (
           <Link href="/travel" className="mx-2 hover:underline">
             Travel
+          </Link>
+        )}
+
+        {shopEnabled && (
+          <Link href="/shop" className="mx-2 hover:underline">
+            Shop
           </Link>
         )}
 

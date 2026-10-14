@@ -8,6 +8,9 @@ import DisclaimerGate from "../components/DisclaimerGate";
 import siteMetadata from "../utils/siteMetaData";
 import { createClient } from "@/src/lib/supabase/server";
 import { getTravelFeatureEnabled } from "@/src/lib/travelFeature";
+import { CartProvider } from "@/src/context/CartContext";
+import CartDrawer from "@/src/components/shop/CartDrawer";
+import ShopCartButton from "@/src/components/shop/ShopCartButton";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -58,15 +61,26 @@ export default async function RootLayout({ children }) {
         className={cx(
           inter.variable,
           manrope.variable,
-              "font-mr bg-light text-dark antialiased dark:bg-dark dark:text-[#f5f5f3]"
+          "font-mr bg-light text-dark antialiased dark:bg-dark dark:text-[#f5f5f3]"
         )}
       >
-        <DisclaimerGate>
-          <Header travelEnabled={travelEnabled} />
-          {children}
-          <Footer />
-        </DisclaimerGate>
+        <CartProvider>
+          <DisclaimerGate>
+            <Header travelEnabled={travelEnabled} />
+            {children}
+            <CartDrawer />
+            <ShopCartButton />
+            <Footer />
+          </DisclaimerGate>
+        </CartProvider>
 
+        {/* Razorpay Checkout Script */}
+        <Script
+          src="https://checkout.razorpay.com/v1/checkout.js"
+          strategy="lazyOnload"
+        />
+
+        {/* Cloudflare Analytics */}
         <Script
           type="module"
           src="https://static.cloudflareinsights.com/beacon.min.js"
