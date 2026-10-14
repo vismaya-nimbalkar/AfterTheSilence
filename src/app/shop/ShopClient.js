@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useCart } from "@/src/context/CartContext";
 import { useRouter } from "next/navigation";
+import ProductImageGallery from "@/src/components/shop/ProductImageGallery";
 
 export default function ShopClient({ preview }) {
   const [products, setProducts] = useState([]);
@@ -87,21 +88,14 @@ export default function ShopClient({ preview }) {
             >
               <div>
                 {/* Image Container */}
-                {item.images?.[0] ? (
-                  <Link href={`/shop/${item.slug}${preview ? "?preview=1" : ""}`}>
-                    <div className="w-full aspect-square rounded-xl overflow-hidden mb-5 border border-dark/10 dark:border-light/10 bg-dark/5 dark:bg-light/5">
-                      <img
-                        src={item.images[0]}
-                        alt={item.title}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                      />
-                    </div>
-                  </Link>
-                ) : (
-                  <div className="w-full aspect-square rounded-xl bg-dark/5 dark:bg-light/5 mb-5 flex items-center justify-center text-xs opacity-40">
-                    No Preview
-                  </div>
-                )}
+                <div className="mb-5">
+                  <ProductImageGallery
+                    images={item.images || []}
+                    title={item.title}
+                    linkHref={`/shop/${item.slug}${preview ? "?preview=1" : ""}`}
+                    compact
+                  />
+                </div>
 
                 {/* Title & Price */}
                 <div className="flex justify-between items-baseline gap-2 mb-2">

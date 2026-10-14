@@ -112,7 +112,7 @@ export default function SiteSettingsPage() {
               <label className="block text-sm font-medium">
                 About text
                 <div className="mt-2">
-                  <RichTextEditor value={form.about_body || ""} onChange={(value) => updateField("about_body", value)} enableAttachments={false} />
+                  <RichTextEditor value={form.about_body || ""} onChange={(value) => updateField("about_body", value)} enableAttachments={false} enableFootnotes={false} />
                 </div>
               </label>
             </div>

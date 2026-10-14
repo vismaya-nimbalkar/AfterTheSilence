@@ -30,3 +30,24 @@ export function getTravelMapIds(country) {
 
   return ids;
 }
+
+function normalizeCountryName(value) {
+  return String(value || "")
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "");
+}
+
+export function findTravelCountry(geography, travelCountries) {
+  const mapIds = getTravelMapIds(geography);
+  const mapName = geography?.properties?.name;
+  const normalizedName = normalizeCountryName(mapName);
+
+  return travelCountries.find((country) => mapIds.includes(String(country.map_id)))
+    || travelCountries.find((country) =>
+      normalizeCountryName(country.country_name) === normalizedName
+      || normalizeCountryName(country.map_id) === normalizedName
+    )
+    || null;
+}

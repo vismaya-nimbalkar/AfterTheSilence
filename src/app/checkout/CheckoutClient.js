@@ -34,10 +34,24 @@ export default function CheckoutClient({ preview }) {
   const [phoneNumber, setPhoneNumber] = useState("");
   const [promoInput, setPromoInput] = useState("");
   const [promoApplied, setPromoApplied] = useState(null);
+  const [availablePromotions, setAvailablePromotions] = useState([]);
+  const [promotionsLoading, setPromotionsLoading] = useState(true);
+  const [promotionsError, setPromotionsError] = useState("");
   const [promoError, setPromoError] = useState("");
   const [promoChecking, setPromoChecking] = useState(false);
   const phoneCountryRef = useRef(null);
   const stateDropdownRef = useRef(null);
+
+  useEffect(() => {
+    fetch("/api/promotions", { cache: "no-store" })
+      .then(async (response) => {
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "Could not load available coupons.");
+        setAvailablePromotions(data.promotions || []);
+      })
+      .catch((error) => setPromotionsError(error.message))
+      .finally(() => setPromotionsLoading(false));
+  }, []);
 
   const [form, setForm] = useState({
     name: "",
@@ -144,7 +158,9 @@ export default function CheckoutClient({ preview }) {
     setPromoError("");
   }, [subtotal]);
 
-  const applyPromoCode = async () => {
+  const applyPromoCode = async (code = promoInput) => {
+    const requestedCode = String(code || "").trim().toUpperCase();
+    setPromoInput(requestedCode);
     setPromoChecking(true);
     setPromoError("");
     setPromoApplied(null);
@@ -152,7 +168,7 @@ export default function CheckoutClient({ preview }) {
       const response = await fetch("/api/promotions/validate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code: promoInput, subtotal }),
+        body: JSON.stringify({ code: requestedCode, subtotal }),
       });
       const data = await response.json();
       if (!response.ok || !data.success) throw new Error(data.error || "Could not apply this promo code.");
@@ -564,6 +580,45 @@ export default function CheckoutClient({ preview }) {
               </div>
               {promoError && <p role="alert" className="mt-2 text-xs text-red-700 dark:text-red-300">{promoError}</p>}
               {promoApplied && <p role="status" className="mt-2 text-xs text-green-700 dark:text-green-300">{promoApplied.code} applied — save ₹{promoApplied.discountAmount}.</p>}
+              <div className="mt-4 space-y-2">
+                <p className="text-xs font-semibold opacity-70">Available coupons</p>
+                {promotionsLoading ? (
+                  <p className="text-xs opacity-60">Loading coupons...</p>
+                ) : promotionsError ? (
+                  <p role="alert" className="text-xs text-red-700 dark:text-red-300">{promotionsError}</p>
+                ) : availablePromotions.length ? (
+                  <div className="max-h-48 space-y-2 overflow-y-auto pr-1">
+                    {availablePromotions.map((promotion) => (
+                      <button
+                        key={promotion.code}
+                        type="button"
+                        onClick={() => applyPromoCode(promotion.code)}
+                        disabled={promoChecking}
+                        className="flex w-full items-center justify-between gap-3 rounded-xl border border-dark/15 px-3 py-2 text-left transition-colors hover:bg-dark/5 disabled:opacity-50 dark:border-light/15 dark:hover:bg-light/5"
+                      >
+                        <span>
+                          <span className="block text-sm font-semibold">{promotion.code}</span>
+                          <span className="block text-xs opacity-60">
+                            {promotion.discount_type === "percent"
+                              ? `${promotion.discount_value}% off${promotion.max_discount_amount ? ` (up to ₹${promotion.max_discount_amount})` : ""}`
+                              : `₹${promotion.discount_value} off`}
+                            {Number(promotion.minimum_order_amount) > 0 && ` · Min. order ₹${promotion.minimum_order_amount}`}
+                          </span>
+                        </span>
+                        <span className="shrink-0 text-xs font-semibold">
+                          {promoChecking && promoInput === promotion.code
+                            ? "Applying..."
+                            : promoApplied?.code === promotion.code
+                              ? "Applied"
+                              : "Apply"}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs opacity-60">No coupons are available right now.</p>
+                )}
+              </div>
             </div>
 
             <div className="space-y-4 max-h-60 overflow-y-auto pr-2">

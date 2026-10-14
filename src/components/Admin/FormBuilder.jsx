@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { defaultQuestion, FORM_QUESTION_TYPES, slugify } from "@/src/lib/forms";
+import { defaultQuestion, defaultSection, FORM_QUESTION_TYPES, slugify } from "@/src/lib/forms";
 
 const emptyForm = {
   title: "",
@@ -174,6 +174,13 @@ export default function FormBuilder({ formId = null }) {
     }));
   };
 
+  const addSection = () => {
+    setForm((current) => ({
+      ...current,
+      questions: [...current.questions, defaultSection(current.questions.length)],
+    }));
+  };
+
   const removeQuestion = (index) => {
     setForm((current) => ({
       ...current,
@@ -312,7 +319,10 @@ export default function FormBuilder({ formId = null }) {
             <h2 className="text-xl font-semibold">Responses</h2>
             <div className="mt-4 space-y-3">
               <label className="flex items-center gap-3"><input type="checkbox" checked={form.settings.collectEmail} onChange={(event) => updateSetting("collectEmail", event.target.checked)} /> Collect email addresses</label>
-              <label className="flex items-center gap-3"><input type="checkbox" checked={form.settings.limitOneResponse} onChange={(event) => updateSetting("limitOneResponse", event.target.checked)} /> Limit one response per email</label>
+              <div>
+                <label className="flex items-center gap-3"><input type="checkbox" checked={form.settings.limitOneResponse} onChange={(event) => updateSetting("limitOneResponse", event.target.checked)} /> Limit one response per email</label>
+                {form.settings.limitOneResponse && <p className="mt-1 text-xs opacity-60">Respondents must sign in with Google to submit.</p>}
+              </div>
               <label className="flex items-center gap-3"><input type="checkbox" checked={form.settings.sendResponseReceipt} onChange={(event) => updateSetting("sendResponseReceipt", event.target.checked)} /> Email respondents a copy of their answers</label>
             </div>
             <label className="mt-5 block text-sm font-medium">Confirmation message<textarea value={form.confirmation_message} onChange={(event) => update("confirmation_message", event.target.value)} className="mt-2 min-h-20 w-full rounded-lg border-dark/20 bg-transparent" /></label>
@@ -326,19 +336,20 @@ export default function FormBuilder({ formId = null }) {
           </section>
 
           <section className="space-y-4">
-            <div className="flex items-center justify-between"><h2 className="text-2xl font-semibold">Questions</h2><button type="button" onClick={addQuestion} className="rounded-lg bg-dark px-4 py-2 text-sm font-medium text-light dark:bg-light dark:text-dark">+ Add question</button></div>
-            {form.questions.length === 0 && <div className="rounded-2xl border border-dashed border-dark/20 p-10 text-center opacity-60">Add your first question to begin.</div>}
+            <div className="flex flex-wrap items-center justify-between gap-3"><h2 className="text-2xl font-semibold">Questions and sections</h2><div className="flex gap-2"><button type="button" onClick={addSection} className="rounded-lg border border-dark/20 px-4 py-2 text-sm font-medium">+ Add section</button><button type="button" onClick={addQuestion} className="rounded-lg bg-dark px-4 py-2 text-sm font-medium text-light dark:bg-light dark:text-dark">+ Add question</button></div></div>
+            {form.questions.length === 0 && <div className="rounded-2xl border border-dashed border-dark/20 p-10 text-center opacity-60">Add your first question or section to begin.</div>}
             {form.questions.map((question, index) => (
               <article key={question.id || index} draggable onDragStart={(event) => handleQuestionDragStart(event, index)} onDragOver={(event) => { event.preventDefault(); event.dataTransfer.dropEffect = "move"; }} onDrop={(event) => handleQuestionDrop(event, index)} onDragEnd={() => setDraggedQuestionIndex(null)} className={`rounded-2xl border border-dark/15 p-5 transition-opacity ${draggedQuestionIndex === index ? "opacity-40" : ""}`}>
                 <div className="flex items-start justify-between gap-4">
-                  <button type="button" className="cursor-grab text-sm font-medium opacity-50 active:cursor-grabbing" aria-label={`Drag question ${index + 1}`}>Question {index + 1} <span aria-hidden="true">⋮⋮</span></button>
+                  <button type="button" className="cursor-grab text-sm font-medium opacity-50 active:cursor-grabbing" aria-label={`Drag ${question.type === "section" ? "section" : "question"} ${index + 1}`}>{question.type === "section" ? "Section" : "Question"} {index + 1} <span aria-hidden="true">⋮⋮</span></button>
                   <button type="button" onClick={() => removeQuestion(index)} className="text-sm text-red-600">Remove</button>
                 </div>
-                <div className="mt-4 grid gap-4 sm:grid-cols-[1fr_220px]">
-                  <input value={question.title || ""} onChange={(event) => updateQuestion(index, "title", event.target.value)} className="rounded-lg border-dark/20 bg-transparent" placeholder="Question" required />
-                  <CustomMenu value={question.type} options={FORM_QUESTION_TYPES} placeholder="Choose question type" onChange={(value) => updateQuestion(index, "type", value)} />
+                <div className={`mt-4 grid gap-4 ${question.type === "section" ? "" : "sm:grid-cols-[1fr_220px]"}`}>
+                  <input value={question.title || ""} onChange={(event) => updateQuestion(index, "title", event.target.value)} className="rounded-lg border-dark/20 bg-transparent" placeholder={question.type === "section" ? "Section title" : "Question"} required />
+                  {question.type !== "section" && <CustomMenu value={question.type} options={FORM_QUESTION_TYPES} placeholder="Choose question type" onChange={(value) => updateQuestion(index, "type", value)} />}
                 </div>
                 <input value={question.description || ""} onChange={(event) => updateQuestion(index, "description", event.target.value)} className="mt-3 w-full rounded-lg border-dark/20 bg-transparent" placeholder="Help text (optional)" />
+                {question.type !== "section" && <>
                 <div className="mt-4 flex flex-wrap items-center gap-4">
                   <label className="cursor-pointer rounded-lg border border-dark/20 px-4 py-2 text-sm font-medium">
                     {uploadingQuestionIndex === index ? "Uploading..." : question.image_url ? "Replace image" : "Add image"}
@@ -348,6 +359,7 @@ export default function FormBuilder({ formId = null }) {
                 </div>
                   {["multiple_choice", "checkboxes", "dropdown"].includes(question.type) && <div className="mt-4 space-y-2">{(question.options || []).map((option, optionIndex) => <div key={optionIndex} className="flex gap-2"><input value={option} onChange={(event) => updateOption(index, optionIndex, event.target.value)} className="flex-1 rounded-lg border-dark/20 bg-transparent" placeholder={`Option ${optionIndex + 1}`} /><button type="button" onClick={() => removeOption(index, optionIndex)} className="px-2 text-red-600">Remove</button></div>)}<button type="button" onClick={() => addOption(index)} className="text-sm font-medium underline">Add option</button>{question.type === "multiple_choice" && <label className="mt-3 flex items-center gap-3 text-sm"><input type="checkbox" checked={Boolean(question.validation?.allowOther)} onChange={(event) => updateQuestion(index, "validation", { ...question.validation, allowOther: event.target.checked })} /> Allow respondents to enter another answer</label>}</div>}
                 <label className="mt-4 flex items-center gap-3 text-sm"><input type="checkbox" checked={question.required} onChange={(event) => updateQuestion(index, "required", event.target.checked)} /> Required</label>
+                </>}
               </article>
             ))}
           </section>

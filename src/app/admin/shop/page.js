@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
+import ProductImageGallery from "@/src/components/shop/ProductImageGallery";
 
 // Safari-Safe Canvas Cropper Modal
 function ImageCropModal({ imageSrc, onCancel, onSave }) {
@@ -627,27 +628,18 @@ export default function AdminShopPage() {
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {products.map((product) => {
-              const mainImg =
-                Array.isArray(product.images) && product.images.length > 0
-                  ? product.images[0]
-                  : null;
-
               return (
                 <div
                   key={product.id}
                   className="rounded-2xl border border-dark/10 dark:border-light/10 p-4 bg-white dark:bg-zinc-900/50 flex flex-col justify-between space-y-4 shadow-sm"
                 >
                   <div className="space-y-3">
-                    <div className="relative aspect-square w-full rounded-xl bg-zinc-100 dark:bg-zinc-800/60 overflow-hidden flex items-center justify-center">
-                      {mainImg ? (
-                        <img
-                          src={mainImg}
-                          alt={product.title}
-                          className="w-full h-full object-contain p-2"
-                        />
-                      ) : (
-                        <span className="text-xs opacity-40">No Image</span>
-                      )}
+                    <div className="relative">
+                      <ProductImageGallery
+                        images={product.images || []}
+                        title={product.title}
+                        compact
+                      />
                       <span className="absolute top-2 right-2 px-2 py-0.5 rounded-md bg-dark/10 dark:bg-light/10 text-[10px] font-mono font-bold">
                         {product.is_pod !== false ? `Qikink: ${product.qikink_sku || "SKU needed"}` : "Normal"}
                       </span>

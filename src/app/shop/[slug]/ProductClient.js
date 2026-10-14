@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCart } from "@/src/context/CartContext";
+import ProductImageGallery from "@/src/components/shop/ProductImageGallery";
 
 export default function ProductClient({ slug, preview }) {
   const router = useRouter();
@@ -80,21 +81,7 @@ export default function ProductClient({ slug, preview }) {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-10 lg:gap-14 items-start">
         {/* Product Image */}
-        <div>
-          {product.images?.[0] ? (
-            <div className="w-full aspect-square rounded-2xl overflow-hidden border border-dark/10 dark:border-light/10 bg-dark/5 dark:bg-light/5">
-              <img
-                src={product.images[0]}
-                alt={product.title}
-                className="w-full h-full object-cover"
-              />
-            </div>
-          ) : (
-            <div className="w-full aspect-square rounded-2xl bg-dark/5 dark:bg-light/5 flex items-center justify-center text-xs opacity-40">
-              No Image
-            </div>
-          )}
-        </div>
+        <ProductImageGallery images={product.images || []} title={product.title} />
 
         {/* Product Details & Actions */}
         <div className="flex flex-col justify-between space-y-6">

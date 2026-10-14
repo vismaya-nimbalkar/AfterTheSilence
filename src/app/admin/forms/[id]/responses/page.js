@@ -100,9 +100,9 @@ export default function FormResponsesPage({ params }) {
       </main>
     );
 
-  const questions = [...(form.form_questions || [])].sort(
-    (a, b) => a.position - b.position,
-  );
+  const questions = [...(form.form_questions || [])]
+    .filter((question) => question.type !== "section")
+    .sort((a, b) => a.position - b.position);
 
   return (
     <main className="min-h-screen px-6 py-12 sm:px-10">

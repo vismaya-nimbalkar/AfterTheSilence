@@ -333,6 +333,7 @@ export default function RichTextEditor({
   value = "",
   onChange,
   enableAttachments = true,
+  enableFootnotes = true,
 }) {
   const imageInputRef = useRef(null);
   const audioInputRef = useRef(null);
@@ -1812,7 +1813,7 @@ export default function RichTextEditor({
 
   if (!editor) {
     return (
-      <div className="overflow-hidden rounded-2xl border border-dark/20">
+      <div className="relative rounded-2xl border border-dark/20">
 
         <div className="flex min-h-12 items-center border-b border-dark/10 bg-dark/[0.03] px-4">
 
@@ -1877,7 +1878,7 @@ export default function RichTextEditor({
           MAIN TOOLBAR
       ======================================================= */}
 
-      <div className="flex flex-wrap items-center gap-1 border-b border-dark/10 bg-dark/[0.03] p-2">
+      <div className="sticky top-0 z-20 flex flex-wrap items-center gap-1 border-b border-dark/10 bg-light p-2 dark:bg-dark">
 
         <ToolbarButton
           onClick={() =>
@@ -2227,15 +2228,17 @@ export default function RichTextEditor({
           )}
         </div>
 
-        <ToolbarButton
-          onClick={addFootnote}
-          title="Add footnote"
-        >
-          <FileText
-            size={17}
-            strokeWidth={1.8}
-          />
-        </ToolbarButton>
+        {enableFootnotes && (
+          <ToolbarButton
+            onClick={addFootnote}
+            title="Add footnote"
+          >
+            <FileText
+              size={17}
+              strokeWidth={1.8}
+            />
+          </ToolbarButton>
+        )}
 
         {enableAttachments && (
           <>
@@ -2349,13 +2352,14 @@ export default function RichTextEditor({
 
       {/* ARTICLE EDITOR */}
 
-      <EditorContent
-        editor={editor}
-      />
+      <div className="max-h-[70vh] overflow-y-auto overscroll-contain">
+        <EditorContent
+          editor={editor}
+        />
+      </div>
 
-      {/* FOOTNOTES */}
-
-      <div className="mx-6 border-t border-dark/20 py-8">
+      {enableFootnotes && (
+        <div className="mx-6 border-t border-dark/20 py-8">
 
         <div className="mb-6">
 
@@ -2465,6 +2469,7 @@ export default function RichTextEditor({
         )}
 
       </div>
+      )}
 
     </div>
   );

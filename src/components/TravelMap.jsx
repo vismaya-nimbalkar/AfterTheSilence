@@ -9,10 +9,13 @@ import Highlight from "@tiptap/extension-highlight";
 import Link from "@tiptap/extension-link";
 import { feature } from "topojson-client";
 import world from "world-atlas/countries-50m.json";
-import { getTravelMapId, getTravelMapIds, getTravelStatus } from "@/src/lib/travel";
+import { findTravelCountry, getTravelMapId, getTravelStatus } from "@/src/lib/travel";
 
 const countries = feature(world, world.objects.countries);
 const searchableCountries = countries.features;
+const indiaGeography = countries.features.find(
+  (geography) => geography.properties.name === "India"
+);
 
 function renderNotes(notes) {
   if (!notes) return null;
@@ -55,9 +58,7 @@ export default function TravelMap({ travelCountries = [] }) {
   const countryByMapId = useMemo(() => {
     const lookup = new Map();
     countries.features.forEach((geography) => {
-      const country = travelCountries.find((item) =>
-        getTravelMapIds(geography).includes(String(item.map_id))
-      );
+      const country = findTravelCountry(geography, travelCountries);
       if (country) lookup.set(getTravelMapId(geography), country);
     });
     return lookup;
@@ -90,6 +91,9 @@ export default function TravelMap({ travelCountries = [] }) {
         advisories: [],
       }
     );
+    if (window.matchMedia("(max-width: 1023px)").matches) {
+      requestAnimationFrame(() => advisoryRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
+    }
   };
 
   const selectSearchResult = (geography) => {
@@ -237,10 +241,9 @@ export default function TravelMap({ travelCountries = [] }) {
                 <Geographies geography={indiaGeoJson}>
                   {({ geographies }) =>
                     geographies.map((geography) => {
-                      const indiaCountry = travelCountries.find(
-                        (item) => item.country_name === "India" || item.country_code === "in"
-                      );
-                      const isSelected = selectedMapId === "356" || selected?.country_name === "India";
+                      const indiaCountry = findTravelCountry(indiaGeography, travelCountries);
+                      const isSelected = selectedMapId === getTravelMapId(indiaGeography)
+                        || selected?.country_name === "India";
                       const fill = indiaCountry?.status
                         ? getTravelStatus(indiaCountry.status).color
                         : "#ffffff";
@@ -256,7 +259,7 @@ export default function TravelMap({ travelCountries = [] }) {
                           strokeLinejoin="round"
                           strokeLinecap="round"
                           vectorEffect="non-scaling-stroke"
-                          onClick={() => selectCountry(geography)}
+                          onClick={() => selectCountry(indiaGeography)}
                           style={{
                             default: {
                               fill,

@@ -19,6 +19,17 @@ export const defaultQuestion = (position = 0) => ({
   position,
 });
 
+export const defaultSection = (position = 0) => ({
+  id: `section-${Date.now()}-${position}`,
+  type: "section",
+  title: "",
+  description: "",
+  required: false,
+  options: [],
+  validation: { allowOther: false },
+  position,
+});
+
 export function slugify(value) {
   return String(value || "")
     .toLowerCase()
@@ -31,10 +42,12 @@ export function slugify(value) {
 
 export function normalizeQuestions(questions) {
   return (Array.isArray(questions) ? questions : []).map((question, index) => ({
-    type: FORM_QUESTION_TYPES.some((item) => item.value === question.type) ? question.type : "short_text",
+    type: question.type === "section"
+      ? "section"
+      : FORM_QUESTION_TYPES.some((item) => item.value === question.type) ? question.type : "short_text",
     title: String(question.title || "").trim().slice(0, 300),
     description: String(question.description || "").trim().slice(0, 1000),
-    required: Boolean(question.required),
+    required: question.type === "section" ? false : Boolean(question.required),
     options: ["multiple_choice", "checkboxes", "dropdown"].includes(question.type)
       ? (Array.isArray(question.options) ? question.options : []).map((option) => String(option || "").trim()).filter(Boolean).slice(0, 100)
       : [],
