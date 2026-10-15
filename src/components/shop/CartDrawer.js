@@ -1,12 +1,35 @@
 "use client";
 
+import { useEffect } from "react";
 import { useCart } from "@/src/context/CartContext";
 import Link from "next/link";
 
 export default function CartDrawer() {
-  const { cart, removeFromCart, updateQuantity, subtotal, isOpen, setIsOpen, previewMode } = useCart();
+  const {
+    cart,
+    removeFromCart,
+    updateQuantity,
+    subtotal,
+    isOpen,
+    setIsOpen,
+    previewMode,
+    availabilityLoading,
+    availabilityChecked,
+    availabilityError,
+    refreshCartAvailability,
+  } = useCart();
+
+  useEffect(() => {
+    if (isOpen) refreshCartAvailability();
+  }, [isOpen, refreshCartAvailability]);
 
   if (!isOpen) return null;
+
+  const hasUnavailableItem = cart.some(
+    (item) => item.is_in_stock === false || item.is_published === false
+  );
+  const checkoutBlocked =
+    availabilityLoading || !availabilityChecked || Boolean(availabilityError) || hasUnavailableItem;
 
   return (
     <div className="fixed inset-0 z-[200] flex justify-end">
@@ -50,6 +73,11 @@ export default function CartDrawer() {
                   <div className="flex-1 min-w-0">
                     <h3 className="font-bold text-sm truncate">{item.title}</h3>
                     <p className="text-xs opacity-60">₹{item.price}</p>
+                    {(item.is_in_stock === false || item.is_published === false) && (
+                      <p className="mt-1 text-xs font-semibold text-red-600 dark:text-red-400">
+                        {item.is_published === false ? "No longer available" : "Out of stock"}
+                      </p>
+                    )}
 
                     <div className="flex items-center gap-2 mt-2">
                       <button
@@ -82,18 +110,46 @@ export default function CartDrawer() {
 
         {cart.length > 0 && (
           <div className="pt-6 border-t border-dark/10 dark:border-light/10 space-y-4">
+            {availabilityError ? (
+              <div className="text-xs text-red-600 dark:text-red-400">
+                <p>{availabilityError}</p>
+                <button
+                  type="button"
+                  onClick={refreshCartAvailability}
+                  className="mt-2 underline"
+                >
+                  Check availability again
+                </button>
+              </div>
+            ) : hasUnavailableItem ? (
+              <p className="text-xs font-semibold text-red-600 dark:text-red-400">
+                Remove out-of-stock items to continue to checkout.
+              </p>
+            ) : !availabilityChecked || availabilityLoading ? (
+              <p className="text-xs opacity-60">Checking product availability...</p>
+            ) : null}
             <div className="flex justify-between items-center text-lg font-bold">
               <span>Subtotal</span>
               <span>₹{subtotal}</span>
             </div>
 
-            <Link
-              href={`/checkout${previewMode ? "?preview=1" : ""}`}
-              onClick={() => setIsOpen(false)}
-              className="block w-full py-3.5 bg-dark text-light dark:bg-light dark:text-dark rounded-full font-bold text-center text-sm hover:opacity-80 transition-opacity"
-            >
-              Proceed to Checkout
-            </Link>
+            {checkoutBlocked ? (
+              <button
+                type="button"
+                disabled
+                className="block w-full py-3.5 bg-dark text-light dark:bg-light dark:text-dark rounded-full font-bold text-center text-sm opacity-50 cursor-not-allowed"
+              >
+                Proceed to Checkout
+              </button>
+            ) : (
+              <Link
+                href={`/checkout${previewMode ? "?preview=1" : ""}`}
+                onClick={() => setIsOpen(false)}
+                className="block w-full py-3.5 bg-dark text-light dark:bg-light dark:text-dark rounded-full font-bold text-center text-sm hover:opacity-80 transition-opacity"
+              >
+                Proceed to Checkout
+              </Link>
+            )}
           </div>
         )}
       </div>

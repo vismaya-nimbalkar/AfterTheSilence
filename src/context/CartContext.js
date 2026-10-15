@@ -8,6 +8,10 @@ export function CartProvider({ children }) {
   const [cart, setCart] = useState([]);
   const [isOpen, setIsOpen] = useState(false);
   const [previewMode, setPreviewMode] = useState(false);
+  const [cartLoaded, setCartLoaded] = useState(false);
+  const [availabilityLoading, setAvailabilityLoading] = useState(false);
+  const [availabilityChecked, setAvailabilityChecked] = useState(false);
+  const [availabilityError, setAvailabilityError] = useState("");
 
   const setPreviewModeFromPage = useCallback((enabled) => {
     setPreviewMode(Boolean(enabled));
@@ -17,14 +21,69 @@ export function CartProvider({ children }) {
     try {
       const saved = localStorage.getItem("ats_cart");
       if (saved) setCart(JSON.parse(saved));
-    } catch {}
+    } catch (error) {
+      console.error("Could not load the saved cart:", error);
+    } finally {
+      setCartLoaded(true);
+    }
   }, []);
 
   useEffect(() => {
+    if (!cartLoaded) return;
     try {
       localStorage.setItem("ats_cart", JSON.stringify(cart));
-    } catch {}
-  }, [cart]);
+    } catch (error) {
+      console.error("Could not save the cart:", error);
+    }
+  }, [cart, cartLoaded]);
+
+  const cartProductIds = cart.map((item) => item.id).join(",");
+
+  const refreshCartAvailability = useCallback(async () => {
+    if (!cartLoaded) return;
+    if (!cartProductIds) {
+      setAvailabilityChecked(true);
+      setAvailabilityError("");
+      setAvailabilityLoading(false);
+      return;
+    }
+
+    setAvailabilityLoading(true);
+    setAvailabilityChecked(false);
+    setAvailabilityError("");
+
+    try {
+      const response = await fetch(
+        `/api/shop/products${previewMode ? "?preview=1" : ""}`,
+        { cache: "no-store" }
+      );
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || "Could not check product availability.");
+      }
+
+      const productsById = new Map((data.products || []).map((product) => [product.id, product]));
+      setCart((currentCart) =>
+        currentCart.map((item) => {
+          const product = productsById.get(item.id);
+          return {
+            ...item,
+            is_published: Boolean(product),
+            is_in_stock: Boolean(product) && product.is_in_stock !== false,
+          };
+        })
+      );
+      setAvailabilityChecked(true);
+    } catch (error) {
+      setAvailabilityError(error.message || "Could not check product availability.");
+    } finally {
+      setAvailabilityLoading(false);
+    }
+  }, [cartLoaded, cartProductIds, previewMode]);
+
+  useEffect(() => {
+    if (cartLoaded) refreshCartAvailability();
+  }, [cartLoaded, refreshCartAvailability]);
 
   const addToCart = (product, quantity = 1) => {
     setCart((prev) => {
@@ -36,7 +95,6 @@ export function CartProvider({ children }) {
       }
       return [...prev, { ...product, quantity }];
     });
-    setIsOpen(true);
   };
 
   const removeFromCart = (id) => {
@@ -72,6 +130,10 @@ export function CartProvider({ children }) {
         subtotal,
         isOpen,
         setIsOpen,
+        availabilityLoading,
+        availabilityChecked,
+        availabilityError,
+        refreshCartAvailability,
         previewMode,
         setPreviewMode: setPreviewModeFromPage,
       }}

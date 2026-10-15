@@ -215,7 +215,9 @@ export default function OrderTrackingPage() {
           {loading ? "Searching..." : "Track"}
         </button>
       </form>
-      <PrivacyNotice action="searching for your order" />
+      <div className="mb-8">
+        <PrivacyNotice action="searching for your order" />
+      </div>
 
       {errorMessage && (
         <div className="mb-6 p-4 rounded-xl border border-red-500/30 bg-red-500/10 text-red-600 dark:text-red-400 text-xs">

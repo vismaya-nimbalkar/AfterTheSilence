@@ -5,10 +5,11 @@ import { useRouter } from "next/navigation";
 import { useCart } from "@/src/context/CartContext";
 import ProductImageGallery from "@/src/components/shop/ProductImageGallery";
 import BackLink from "@/src/components/BackLink";
+import CartQuantityControl from "@/src/components/shop/CartQuantityControl";
 
 export default function ProductClient({ slug, preview }) {
   const router = useRouter();
-  const { addToCart, setPreviewMode } = useCart();
+  const { addToCart, setIsOpen, setPreviewMode } = useCart();
 
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -34,14 +35,9 @@ export default function ProductClient({ slug, preview }) {
       });
   }, [slug, preview, setPreviewMode]);
 
-  const handleAddToCart = () => {
-    if (product) {
-      addToCart(product, quantity);
-    }
-  };
-
   const handleBuyNow = () => {
     if (product) {
+      setIsOpen(false);
       addToCart(product, quantity);
       router.push(`/checkout${preview ? "?preview=1" : ""}`);
     }
@@ -124,18 +120,12 @@ export default function ProductClient({ slug, preview }) {
                 Out of Stock
               </button>
             ) : (
-              <div className="grid grid-cols-2 gap-4">
-                <button
-                  type="button"
-                  onClick={handleAddToCart}
-                  className="py-3.5 px-5 rounded-xl border border-dark dark:border-light text-xs font-semibold hover:bg-dark/5 dark:hover:bg-light/5 transition-colors"
-                >
-                  Add to Cart
-                </button>
+              <div className="grid grid-cols-2 items-start gap-4">
+                <CartQuantityControl product={product} addQuantity={quantity} />
                 <button
                   type="button"
                   onClick={handleBuyNow}
-                  className="py-3.5 px-5 rounded-xl bg-dark text-light dark:bg-light dark:text-dark text-xs font-semibold hover:opacity-80 transition-opacity"
+                  className="min-h-11 rounded-xl bg-dark px-3 text-xs font-semibold text-light transition-opacity hover:opacity-80 dark:bg-light dark:text-dark"
                 >
                   Buy Now
                 </button>

@@ -5,13 +5,14 @@ import Link from "next/link";
 import { useCart } from "@/src/context/CartContext";
 import { useRouter } from "next/navigation";
 import ProductImageGallery from "@/src/components/shop/ProductImageGallery";
+import CartQuantityControl from "@/src/components/shop/CartQuantityControl";
 
 export default function ShopClient({ preview }) {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [shopDisabled, setShopDisabled] = useState(false);
-  const { addToCart, setPreviewMode } = useCart();
+  const { addToCart, setIsOpen, setPreviewMode } = useCart();
   const router = useRouter();
 
   useEffect(() => {
@@ -36,6 +37,7 @@ export default function ShopClient({ preview }) {
   }, [preview, setPreviewMode]);
 
   const handleBuyNow = (product) => {
+    setIsOpen(false);
     addToCart(product, 1);
     router.push(`/checkout${preview ? "?preview=1" : ""}`);
   };
@@ -123,18 +125,12 @@ export default function ShopClient({ preview }) {
                     Out of Stock
                   </button>
                 ) : (
-                  <div className="grid grid-cols-2 gap-3">
-                    <button
-                      type="button"
-                      onClick={() => addToCart(item, 1)}
-                      className="py-3 px-4 rounded-xl border border-dark/20 dark:border-light/20 text-xs font-semibold hover:bg-dark/5 dark:hover:bg-light/5 transition-colors"
-                    >
-                      Add to Cart
-                    </button>
+                  <div className="grid grid-cols-2 items-start gap-3">
+                    <CartQuantityControl product={item} />
                     <button
                       type="button"
                       onClick={() => handleBuyNow(item)}
-                      className="py-3 px-4 rounded-xl bg-dark text-light dark:bg-light dark:text-dark text-xs font-semibold hover:opacity-80 transition-opacity"
+                      className="min-h-11 rounded-xl bg-dark px-2 text-xs font-semibold text-light transition-opacity hover:opacity-80 dark:bg-light dark:text-dark"
                     >
                       Buy Now
                     </button>

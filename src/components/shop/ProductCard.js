@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useCart } from "@/src/context/CartContext";
+import CartQuantityControl from "@/src/components/shop/CartQuantityControl";
 
 export default function ProductCard({ product }) {
   const { addToCart } = useCart();
@@ -54,14 +55,8 @@ export default function ProductCard({ product }) {
       </div>
 
       {/* Action Buttons */}
-      <div className="grid grid-cols-2 gap-2 pt-2 border-t border-dark/10 dark:border-light/10">
-        <button
-          type="button"
-          onClick={() => addToCart(product, 1)}
-          className="py-2.5 px-3 rounded-xl border border-dark/20 dark:border-light/20 text-xs font-semibold hover:bg-dark/5 dark:hover:bg-light/5 transition-colors"
-        >
-          Add to Cart
-        </button>
+      <div className="grid grid-cols-2 items-start gap-2 pt-2 border-t border-dark/10 dark:border-light/10">
+        <CartQuantityControl product={product} />
         <button
           type="button"
           onClick={() => {

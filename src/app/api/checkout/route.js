@@ -55,8 +55,11 @@ export async function POST(req) {
       .in("id", [...quantities.keys()]);
     if (productsError) throw productsError;
 
-    if (products.length !== quantities.size || products.some((product) => !product.is_published || product.is_in_stock === false)) {
+    if (products.length !== quantities.size || products.some((product) => !product.is_published)) {
       return NextResponse.json({ error: "A product in your cart is unavailable. Refresh your cart and try again." }, { status: 400 });
+    }
+    if (products.some((product) => product.is_in_stock === false)) {
+      return NextResponse.json({ error: "An item in your cart is out of stock. Remove it from your cart to continue." }, { status: 400 });
     }
     if (products.some((product) => product.is_pod !== false && !product.qikink_sku)) {
       return NextResponse.json({ error: "A print-on-demand product is not connected to Qikink yet. Please contact the shop owner." }, { status: 409 });

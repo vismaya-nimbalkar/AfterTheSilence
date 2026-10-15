@@ -21,7 +21,18 @@ function loadRazorpayScript() {
 }
 
 export default function CheckoutClient({ preview }) {
-  const { cart, subtotal, clearCart } = useCart();
+  const {
+    cart,
+    subtotal,
+    clearCart,
+    removeFromCart,
+    updateQuantity,
+    availabilityLoading,
+    availabilityChecked,
+    availabilityError,
+    refreshCartAvailability,
+    setPreviewMode,
+  } = useCart();
   const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
   const [countries, setCountries] = useState([]);
@@ -40,8 +51,34 @@ export default function CheckoutClient({ preview }) {
   const [promotionsError, setPromotionsError] = useState("");
   const [promoError, setPromoError] = useState("");
   const [promoChecking, setPromoChecking] = useState(false);
+  const [checkoutNotice, setCheckoutNotice] = useState(null);
   const phoneCountryRef = useRef(null);
   const stateDropdownRef = useRef(null);
+  const noticeCloseButtonRef = useRef(null);
+  const hasUnavailableItem = cart.some(
+    (item) => item.is_in_stock === false || item.is_published === false
+  );
+  const checkoutBlocked =
+    availabilityLoading || !availabilityChecked || Boolean(availabilityError) || hasUnavailableItem;
+
+  useEffect(() => {
+    setPreviewMode(preview);
+  }, [preview, setPreviewMode]);
+
+  useEffect(() => {
+    if (!checkoutNotice) return undefined;
+
+    noticeCloseButtonRef.current?.focus();
+    const closeOnEscape = (event) => {
+      if (event.key === "Escape") setCheckoutNotice(null);
+    };
+    document.addEventListener("keydown", closeOnEscape);
+    return () => document.removeEventListener("keydown", closeOnEscape);
+  }, [checkoutNotice]);
+
+  useEffect(() => {
+    if (cart.length > 0) refreshCartAvailability();
+  }, [cart.length, refreshCartAvailability]);
 
   useEffect(() => {
     fetch("/api/promotions", { cache: "no-store" })
@@ -184,7 +221,22 @@ export default function CheckoutClient({ preview }) {
 
   const handleCheckoutSubmit = async (e) => {
     e.preventDefault();
-    if (cart.length === 0) return alert("Your cart is empty.");
+    if (cart.length === 0) {
+      setCheckoutNotice({
+        title: "Your cart is empty",
+        message: "Add a product to your cart before continuing to checkout.",
+      });
+      return;
+    }
+    if (checkoutBlocked) {
+      setCheckoutNotice({
+        title: "Checkout is unavailable",
+        message: hasUnavailableItem
+          ? "Remove out-of-stock items from your cart before checking out."
+          : availabilityError || "Please wait while product availability is checked.",
+      });
+      return;
+    }
 
     setSubmitting(true);
 
@@ -274,7 +326,10 @@ export default function CheckoutClient({ preview }) {
             clearCart();
             router.push(`/shop/confirmation?orderId=${verifyData.orderId}&method=razorpay${preview ? "&preview=1" : ""}`);
           } catch (verifyErr) {
-            alert(`Verification Error: ${verifyErr.message}`);
+            setCheckoutNotice({
+              title: "Payment verification failed",
+              message: verifyErr.message,
+            });
           }
         },
         modal: {
@@ -287,13 +342,22 @@ export default function CheckoutClient({ preview }) {
 
       const rzp = new window.Razorpay(options);
       rzp.on("payment.failed", function (resp) {
-        alert(`Payment Failed: ${resp.error.description}`);
+        setCheckoutNotice({
+          title: "Payment failed",
+          message: resp.error.description || "Your payment could not be completed. Please try again.",
+        });
         setSubmitting(false);
       });
 
       rzp.open();
     } catch (err) {
-      alert(`Checkout Error: ${err.message}`);
+      if (/out of stock|unavailable/i.test(err.message || "")) {
+        refreshCartAvailability();
+      }
+      setCheckoutNotice({
+        title: "Checkout couldn't be completed",
+        message: err.message || "Something went wrong. Please try again.",
+      });
       setSubmitting(false);
     }
   };
@@ -310,6 +374,46 @@ export default function CheckoutClient({ preview }) {
 
   return (
     <main className="min-h-screen max-w-6xl mx-auto px-6 py-16">
+      {checkoutNotice && (
+        <div
+          className="fixed inset-0 z-[300] flex items-center justify-center bg-black/45 px-4 py-8 backdrop-blur-sm"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) setCheckoutNotice(null);
+          }}
+        >
+          <section
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="checkout-notice-title"
+            aria-describedby="checkout-notice-message"
+            className="w-full max-w-xl overflow-hidden rounded-3xl bg-white text-zinc-800 shadow-2xl dark:bg-zinc-900 dark:text-zinc-100"
+          >
+            <div className="flex gap-4 px-6 py-7 sm:px-8">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-red-100 text-lg font-bold text-red-600 dark:bg-red-950 dark:text-red-300" aria-hidden="true">
+                !
+              </div>
+              <div className="min-w-0">
+                <h2 id="checkout-notice-title" className="text-lg font-semibold tracking-tight">
+                  {checkoutNotice.title}
+                </h2>
+                <p id="checkout-notice-message" className="mt-2 break-words text-sm leading-relaxed text-zinc-600 dark:text-zinc-300">
+                  {checkoutNotice.message}
+                </p>
+              </div>
+            </div>
+            <div className="flex justify-end border-t border-zinc-200 px-6 py-3 dark:border-zinc-700 sm:px-8">
+              <button
+                ref={noticeCloseButtonRef}
+                type="button"
+                onClick={() => setCheckoutNotice(null)}
+                className="rounded-xl px-4 py-2 text-sm font-semibold text-fuchsia-700 transition-colors hover:bg-fuchsia-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-fuchsia-500 dark:text-fuchsia-300 dark:hover:bg-fuchsia-950/50"
+              >
+                Close
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
       <div className="mb-8">
         <BackLink href="/shop">Back to Shop</BackLink>
       </div>
@@ -319,6 +423,23 @@ export default function CheckoutClient({ preview }) {
         <p className="mb-6 rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm">
           Admin preview checkout uses live Razorpay and normal fulfillment. Completing checkout will charge your payment method and create a real order.
         </p>
+      )}
+      {availabilityError && (
+        <div role="alert" className="mb-6 rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-700 dark:text-red-300">
+          <p>{availabilityError}</p>
+          <button
+            type="button"
+            onClick={refreshCartAvailability}
+            className="mt-2 font-semibold underline"
+          >
+            Check availability again
+          </button>
+        </div>
+      )}
+      {hasUnavailableItem && (
+        <div role="alert" className="mb-6 rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-700 dark:text-red-300">
+          Out-of-stock or unavailable items must be removed from your cart before checkout.
+        </div>
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
@@ -625,12 +746,46 @@ export default function CheckoutClient({ preview }) {
                         className="w-12 h-12 object-cover rounded-lg border border-dark/10"
                       />
                     )}
-                    <div>
+                    <div className="min-w-0">
                       <p className="font-semibold">{item.title}</p>
-                      <p className="text-xs opacity-60">Qty: {item.quantity}</p>
+                      <div className="mt-1 flex items-center gap-2">
+                        <button
+                          type="button"
+                          aria-label={`Decrease quantity of ${item.title}`}
+                          onClick={() => updateQuantity(item.id, -1)}
+                          className="flex h-6 w-6 items-center justify-center rounded-md border border-dark/20 text-xs dark:border-light/20"
+                        >
+                          −
+                        </button>
+                        <span className="min-w-5 text-center text-xs font-semibold">
+                          {item.quantity}
+                        </span>
+                        <button
+                          type="button"
+                          aria-label={`Increase quantity of ${item.title}`}
+                          onClick={() => updateQuantity(item.id, 1)}
+                          className="flex h-6 w-6 items-center justify-center rounded-md border border-dark/20 text-xs dark:border-light/20"
+                        >
+                          +
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => removeFromCart(item.id)}
+                          className="ml-1 text-xs text-red-600 underline dark:text-red-400"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                      {(item.is_in_stock === false || item.is_published === false) && (
+                        <p className="mt-1 text-xs font-semibold text-red-600 dark:text-red-400">
+                          {item.is_published === false ? "No longer available" : "Out of stock"}
+                        </p>
+                      )}
                     </div>
                   </div>
-                  <span className="font-semibold">₹{item.price * item.quantity}</span>
+                  <div className="shrink-0 text-right">
+                    <span className="font-semibold">₹{item.price * item.quantity}</span>
+                  </div>
                 </div>
               ))}
             </div>
@@ -659,10 +814,18 @@ export default function CheckoutClient({ preview }) {
             <button
               type="submit"
               form="checkout-form"
-              disabled={submitting}
+              disabled={submitting || checkoutBlocked}
               className="w-full py-4 bg-dark text-light dark:bg-light dark:text-dark rounded-full font-bold text-sm hover:opacity-80 transition-opacity disabled:opacity-50"
             >
-              {submitting ? "Processing..." : `Pay ₹${checkoutTotal} via Razorpay`}
+              {submitting
+                ? "Processing..."
+                : hasUnavailableItem
+                  ? "Remove unavailable items to continue"
+                  : availabilityLoading || !availabilityChecked
+                    ? "Checking product availability..."
+                    : availabilityError
+                      ? "Availability check required"
+                      : `Pay ₹${checkoutTotal} via Razorpay`}
             </button>
             <PrivacyNotice action="placing your order" />
           </div>
