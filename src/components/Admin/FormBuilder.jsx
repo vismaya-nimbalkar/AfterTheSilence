@@ -3,13 +3,19 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { defaultQuestion, defaultSection, FORM_QUESTION_TYPES, slugify } from "@/src/lib/forms";
+import BackLink from "@/src/components/BackLink";
 
 const emptyForm = {
   title: "",
   description: "",
   slug: "",
   status: "draft",
-  settings: { collectEmail: false, limitOneResponse: false, sendResponseReceipt: false },
+  settings: {
+    collectEmail: false,
+    limitOneResponse: false,
+    sendResponseReceipt: false,
+    closedMessage: "This form isn't accepting responses right now.",
+  },
   confirmation_message: "Your response has been recorded.",
   confirmation_image_url: "",
   questions: [],
@@ -18,6 +24,10 @@ const emptyForm = {
 function CustomMenu({ value, options, placeholder, onChange }) {
   const [open, setOpen] = useState(false);
   const selected = options.find((option) => option.value === value);
+
+  useEffect(() => {
+    setOpen(false);
+  }, [value]);
 
   return (
     <div className="relative">
@@ -44,9 +54,10 @@ function CustomMenu({ value, options, placeholder, onChange }) {
             <button
               key={option.value}
               type="button"
-              onClick={() => {
-                onChange(option.value);
+              onClick={(event) => {
+                event.stopPropagation();
                 setOpen(false);
+                onChange(option.value);
               }}
               className={`block w-full px-4 py-3 text-left transition-colors hover:bg-dark/5 dark:hover:bg-light/10 ${
                 option.value === value ? "font-semibold" : ""
@@ -75,7 +86,6 @@ export default function FormBuilder({ formId = null }) {
   const [loading, setLoading] = useState(Boolean(formId));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  const [message, setMessage] = useState("");
   const [draggedQuestionIndex, setDraggedQuestionIndex] = useState(null);
   const [uploadingQuestionIndex, setUploadingQuestionIndex] = useState(null);
   const [uploadingConfirmationImage, setUploadingConfirmationImage] = useState(false);
@@ -261,7 +271,6 @@ export default function FormBuilder({ formId = null }) {
     event.preventDefault();
     setSaving(true);
     setError("");
-    setMessage("");
 
     try {
       const response = await fetch(
@@ -274,8 +283,7 @@ export default function FormBuilder({ formId = null }) {
       );
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "Could not save form.");
-      setMessage("Form saved.");
-      if (!formId) router.replace(`/admin/forms/${result.form.id}/edit`);
+      router.push("/admin/forms");
     } catch (err) {
       setError(err.message);
     } finally {
@@ -294,9 +302,7 @@ export default function FormBuilder({ formId = null }) {
   return (
     <main className="min-h-screen px-6 py-12 sm:px-10 lg:px-24">
       <div className="mx-auto max-w-4xl">
-        <button type="button" onClick={() => router.push("/admin/forms")} className="text-sm opacity-60 hover:opacity-100">
-          Back to Forms
-        </button>
+        <BackLink href="/admin/forms">Back to Forms</BackLink>
         <div className="mt-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <p className="text-sm uppercase tracking-[0.18em] opacity-50">Form builder</p>
@@ -311,7 +317,7 @@ export default function FormBuilder({ formId = null }) {
             <textarea value={form.description} onChange={(event) => update("description", event.target.value)} className="mt-5 min-h-24 w-full resize-y border-0 bg-transparent px-4 focus:ring-0" placeholder="Form description (optional)" />
             <div className="mt-6 grid gap-4 sm:grid-cols-2">
               <label className="text-sm font-medium">Public URL<input value={form.slug} onChange={(event) => update("slug", slugify(event.target.value))} className="mt-2 block w-full rounded-lg border-dark/20 bg-transparent" placeholder="my-form" /></label>
-              <label className="text-sm font-medium">Status<div className="mt-2"><CustomMenu value={form.status} options={statusOptions} placeholder="Choose status" onChange={(value) => update("status", value)} /></div></label>
+              <div className="text-sm font-medium"><span>Status</span><div className="mt-2"><CustomMenu value={form.status} options={statusOptions} placeholder="Choose status" onChange={(value) => update("status", value)} /></div></div>
             </div>
           </section>
 
@@ -325,6 +331,18 @@ export default function FormBuilder({ formId = null }) {
               </div>
               <label className="flex items-center gap-3"><input type="checkbox" checked={form.settings.sendResponseReceipt} onChange={(event) => updateSetting("sendResponseReceipt", event.target.checked)} /> Email respondents a copy of their answers</label>
             </div>
+            <label className="mt-5 block text-sm font-medium">
+              Closed form message
+              <p className="mt-1 text-xs font-normal opacity-60">
+                Shown to visitors when this form is closed.
+              </p>
+              <textarea
+                value={form.settings.closedMessage || ""}
+                onChange={(event) => updateSetting("closedMessage", event.target.value)}
+                maxLength={1000}
+                className="mt-2 min-h-20 w-full rounded-lg border-dark/20 bg-transparent"
+              />
+            </label>
             <label className="mt-5 block text-sm font-medium">Confirmation message<textarea value={form.confirmation_message} onChange={(event) => update("confirmation_message", event.target.value)} className="mt-2 min-h-20 w-full rounded-lg border-dark/20 bg-transparent" /></label>
             <div className="mt-4 flex flex-wrap items-center gap-4">
               <label className="cursor-pointer rounded-lg border border-dark/20 px-4 py-2 text-sm font-medium">
@@ -365,7 +383,7 @@ export default function FormBuilder({ formId = null }) {
           </section>
 
           {error && <p className="rounded-lg border border-red-500/30 p-4 text-red-600">{error}</p>}
-          {message && <p className="rounded-lg border border-green-500/30 p-4 text-green-700">{message}</p>}
+
           <button type="submit" disabled={saving} className="rounded-lg bg-dark px-6 py-3 font-medium text-light dark:bg-light dark:text-dark disabled:opacity-50">{saving ? "Saving..." : "Save form"}</button>
         </form>
       </div>

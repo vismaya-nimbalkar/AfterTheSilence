@@ -1,15 +1,18 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/src/lib/supabase/server";
 import { createAdminClient } from "@/src/lib/supabase/admin";
-import { getUserRole } from "@/src/lib/admin/permissions";
+import { hasEditorPermission } from "@/src/lib/admin/permissions";
 import { getTravelFeatureEnabled } from "@/src/lib/travelFeature";
 
 async function requireAdmin() {
   const supabase = await createClient();
   const { data: { user }, error } = await supabase.auth.getUser();
 
-  if (error || !user || getUserRole(user) !== "admin") {
+  if (error || !user) {
     return { response: NextResponse.json({ error: "Unauthorized." }, { status: 401 }) };
+  }
+  if (!hasEditorPermission(user, "travel")) {
+    return { response: NextResponse.json({ error: "You do not have permission to manage travel." }, { status: 403 }) };
   }
 
   return { user };
@@ -141,9 +144,14 @@ export async function PATCH(request) {
       return NextResponse.json({ error: "Enter a valid last edited date." }, { status: 400 });
     }
 
+    const published = typeof payload.published === "boolean" ? payload.published : true;
     const update = saveAsDraft === true
-      ? { draft: body, updated_at: new Date().toISOString() }
-      : { ...body, published: true, draft: null, updated_at: new Date().toISOString() };
+      ? {
+          draft: body,
+          published,
+          updated_at: new Date().toISOString(),
+        }
+      : { ...body, published, draft: null, updated_at: new Date().toISOString() };
 
     const { data, error } = await createAdminClient()
       .from("travel_countries")

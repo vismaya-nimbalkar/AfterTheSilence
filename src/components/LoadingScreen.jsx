@@ -1,20 +1,4 @@
-"use client";
-
-import { useEffect, useState } from "react";
-
 export default function LoadingScreen() {
-  const [visible, setVisible] = useState(false);
-
-  useEffect(() => {
-    const timer = window.setTimeout(() => setVisible(true), 500);
-
-    return () => window.clearTimeout(timer);
-  }, []);
-
-  if (!visible) {
-    return null;
-  }
-
   return (
     <main
       className="fixed inset-0 z-50 flex min-h-screen items-center justify-center bg-light text-dark dark:bg-dark dark:text-light"

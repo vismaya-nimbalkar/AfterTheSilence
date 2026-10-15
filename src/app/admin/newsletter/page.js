@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/src/lib/supabase/client";
 import RichTextEditor from "@/src/components/Admin/RichTextEditor";
 import { useConfirmDialog } from "@/src/components/Admin/ConfirmDialog";
+import BackLink from "@/src/components/BackLink";
 
 function escapeHtml(value) {
   return String(value || "")
@@ -242,13 +243,7 @@ export default function NewsletterPage() {
         <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
 
           <div>
-            <button
-              type="button"
-              onClick={() => router.push("/admin")}
-              className="text-sm opacity-60 hover:opacity-100 transition-opacity"
-            >
-              ← Back to Dashboard
-            </button>
+            <BackLink href="/admin">Back to Dashboard</BackLink>
 
             <p className="mt-8 text-sm opacity-60">After The Silence</p>
 

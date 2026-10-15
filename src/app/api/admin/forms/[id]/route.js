@@ -37,7 +37,12 @@ export async function PATCH(request, { params }) {
       description: String(body.description || "").trim().slice(0, 5000),
       slug: slugify(body.slug || title) || `form-${Date.now()}`,
       status: ["draft", "published", "closed"].includes(body.status) ? body.status : "draft",
-      settings: { collectEmail: Boolean(body.settings?.collectEmail), limitOneResponse: Boolean(body.settings?.limitOneResponse), sendResponseReceipt: Boolean(body.settings?.sendResponseReceipt) },
+      settings: {
+        collectEmail: Boolean(body.settings?.collectEmail),
+        limitOneResponse: Boolean(body.settings?.limitOneResponse),
+        sendResponseReceipt: Boolean(body.settings?.sendResponseReceipt),
+        closedMessage: String(body.settings?.closedMessage || "This form isn't accepting responses right now.").trim().slice(0, 1000),
+      },
       confirmation_message: String(body.confirmation_message || "Your response has been recorded.").trim().slice(0, 1000),
       confirmation_image_url: String(body.confirmation_image_url || "").trim(),
       updated_at: new Date().toISOString(),

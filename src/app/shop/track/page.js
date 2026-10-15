@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
+import PrivacyNotice from "@/src/components/PrivacyNotice";
+import BackLink from "@/src/components/BackLink";
 
 const TRACKING_STEPS_ONLINE = [
   "Order Placed",
@@ -187,12 +188,9 @@ export default function OrderTrackingPage() {
 
   return (
     <main className="min-h-screen max-w-4xl mx-auto px-6 py-16">
-      <Link
-        href="/shop"
-        className="text-xs opacity-60 hover:opacity-100 transition-opacity mb-8 inline-block"
-      >
-        ← Back to Shop
-      </Link>
+      <div className="mb-8">
+        <BackLink href="/shop">Back to Shop</BackLink>
+      </div>
 
       <h1 className="text-4xl font-bold mb-3">Track Your Order</h1>
       <p className="text-sm opacity-60 mb-10">
@@ -217,6 +215,7 @@ export default function OrderTrackingPage() {
           {loading ? "Searching..." : "Track"}
         </button>
       </form>
+      <PrivacyNotice action="searching for your order" />
 
       {errorMessage && (
         <div className="mb-6 p-4 rounded-xl border border-red-500/30 bg-red-500/10 text-red-600 dark:text-red-400 text-xs">
@@ -261,6 +260,22 @@ export default function OrderTrackingPage() {
                   status={order.status || "Order Placed"}
                   isOffline={order.payment_method === "offline_mail"}
                 />
+
+                <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-4 text-sm">
+                  <p className="font-semibold">Refund status</p>
+                  <p className="mt-1 text-xs opacity-70">
+                    {order.refund_status === "pending"
+                      ? "Your refund is being processed."
+                      : order.refund_status === "full"
+                        ? "Your refund has been processed."
+                        : order.refund_status === "partial"
+                          ? "A partial refund has been processed."
+                          : "No refund has been recorded for this order."}
+                    {Number(order.refunded_amount) > 0 && (
+                      <> Amount refunded: ₹{Number(order.refunded_amount).toFixed(2)}.</>
+                    )}
+                  </p>
+                </div>
 
                 {/* Items List */}
                 <div className="space-y-2 pt-2 border-t border-dark/10 dark:border-light/10">

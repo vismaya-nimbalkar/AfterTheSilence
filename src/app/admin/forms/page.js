@@ -2,11 +2,11 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useConfirmDialog } from "@/src/components/Admin/ConfirmDialog";
+import BackLink from "@/src/components/BackLink";
+import LoadingScreen from "@/src/components/LoadingScreen";
 
 export default function FormsAdminPage() {
-  const router = useRouter();
   const [forms, setForms] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -59,13 +59,13 @@ export default function FormsAdminPage() {
     }
   };
 
-  if (loading) return <main className="flex min-h-screen items-center justify-center"><p className="opacity-60">Loading forms...</p></main>;
+  if (loading) return <LoadingScreen />;
 
   return (
     <main className="min-h-screen px-6 py-12 sm:px-10">
       {dialog}
       <div className="mx-auto max-w-6xl">
-        <button type="button" onClick={() => router.push("/admin")} className="text-sm opacity-60 hover:opacity-100">Back to Dashboard</button>
+        <BackLink href="/admin">Back to Dashboard</BackLink>
         <div className="mt-8 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
           <div><p className="text-sm uppercase tracking-[0.18em] opacity-50">Admin only</p><h1 className="mt-2 text-4xl font-bold">Forms</h1><p className="mt-2 opacity-60">Build forms, publish them, and review responses.</p></div>
           <Link href="/admin/forms/new" className="rounded-lg bg-dark px-5 py-3 text-center font-medium text-light dark:bg-light dark:text-dark">+ New form</Link>

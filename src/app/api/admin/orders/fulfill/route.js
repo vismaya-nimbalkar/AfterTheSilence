@@ -1,14 +1,17 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/src/lib/supabase/server";
 import { createAdminClient } from "@/src/lib/supabase/admin";
-import { getUserRole } from "@/src/lib/admin/permissions";
+import { hasEditorPermission } from "@/src/lib/admin/permissions";
 import { recordQikinkFailure, submitQikinkOrder, syncQikinkOrder } from "@/src/lib/commerce/qikink";
 
 export async function POST(request) {
   const sessionClient = await createClient();
   const { data: { user } } = await sessionClient.auth.getUser();
-  if (!user || getUserRole(user) !== "admin") {
+  if (!user) {
     return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
+  }
+  if (!hasEditorPermission(user, "shop")) {
+    return NextResponse.json({ error: "You do not have permission to manage shop orders." }, { status: 403 });
   }
 
   const supabaseAdmin = createAdminClient();

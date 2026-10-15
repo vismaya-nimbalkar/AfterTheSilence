@@ -25,7 +25,14 @@ export async function POST(request, { params }) {
     const supabaseAdmin = createAdminClient();
     const { data: form, error: formError } = await supabaseAdmin.from("forms").select("id, title, status, settings, confirmation_message, confirmation_image_url").eq("slug", slug).maybeSingle();
     if (formError) throw formError;
-    if (!form || form.status !== "published") return NextResponse.json({ error: "This form is not accepting responses." }, { status: 404 });
+    if (!form) return NextResponse.json({ error: "Form not found." }, { status: 404 });
+    const status = String(form.status || "").trim().toLowerCase();
+    if (status === "closed") {
+      return NextResponse.json({
+        error: form.settings?.closedMessage || "This form isn't accepting responses right now.",
+      }, { status: 409 });
+    }
+    if (status !== "published") return NextResponse.json({ error: "This form is not accepting responses." }, { status: 404 });
     const { data: questions, error: questionError } = await supabaseAdmin.from("form_questions").select("id, title, type, required, options, validation").eq("form_id", form.id).order("position");
     if (questionError) throw questionError;
     const answers = body.answers && typeof body.answers === "object" ? body.answers : {};

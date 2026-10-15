@@ -24,6 +24,7 @@ function cleanForm(body, user) {
       collectEmail: Boolean(body.settings?.collectEmail),
       limitOneResponse: Boolean(body.settings?.limitOneResponse),
       sendResponseReceipt: Boolean(body.settings?.sendResponseReceipt),
+      closedMessage: String(body.settings?.closedMessage || "This form isn't accepting responses right now.").trim().slice(0, 1000),
     },
     confirmation_message: String(body.confirmation_message || "Your response has been recorded.").trim().slice(0, 1000),
     confirmation_image_url: String(body.confirmation_image_url || "").trim(),

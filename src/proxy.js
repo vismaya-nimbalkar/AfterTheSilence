@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
-import { getUserRole } from "@/src/lib/admin/permissions";
+import {
+  canManageStaffAccounts,
+  getUserRole,
+  hasEditorPermission,
+} from "@/src/lib/admin/permissions";
 
 export async function proxy(request) {
   let response = NextResponse.next({
@@ -139,6 +143,26 @@ export async function proxy(request) {
         request.url
       )
     );
+  }
+
+  if (
+    (pathname === "/admin/editors" || pathname.startsWith("/admin/editors/")) &&
+    !canManageStaffAccounts(user)
+  ) {
+    return NextResponse.redirect(new URL("/forbidden", request.url));
+  }
+
+  const requiredPermission = pathname === "/admin/posts" || pathname.startsWith("/admin/posts/")
+    ? "posts"
+    : pathname === "/admin/travel" || pathname.startsWith("/admin/travel/")
+      ? "travel"
+      : pathname === "/admin/shop" || pathname.startsWith("/admin/shop/")
+        || pathname === "/admin/orders" || pathname.startsWith("/admin/orders/")
+        ? "shop"
+        : null;
+
+  if (requiredPermission && !hasEditorPermission(user, requiredPermission)) {
+    return NextResponse.redirect(new URL("/forbidden", request.url));
   }
 
   return response;

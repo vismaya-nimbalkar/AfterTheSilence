@@ -1,5 +1,5 @@
 import { createAdminClient } from "@/src/lib/supabase/admin";
-import { getUserRole } from "@/src/lib/admin/permissions";
+import { getUserRole, hasEditorPermission } from "@/src/lib/admin/permissions";
 
 export async function canManagePost(user, postId, supabaseAdmin = createAdminClient()) {
   if (!user) {
@@ -8,6 +8,10 @@ export async function canManagePost(user, postId, supabaseAdmin = createAdminCli
 
   if (getUserRole(user) === "admin") {
     return true;
+  }
+
+  if (!hasEditorPermission(user, "posts")) {
+    return false;
   }
 
   const { data, error } = await supabaseAdmin

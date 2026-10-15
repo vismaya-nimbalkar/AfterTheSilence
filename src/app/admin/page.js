@@ -5,7 +5,11 @@ import DeletePostButton from "@/src/components/Admin/DeletePostButton";
 import LogoutButton from "@/src/components/Admin/LogoutButton";
 import CommentModeration from "@/src/components/Admin/CommentModeration";
 import BannedIPs from "@/src/components/Admin/BannedIPs";
-import { getUserRole } from "@/src/lib/admin/permissions";
+import {
+  canManageStaffAccounts,
+  getUserRole,
+  hasEditorPermission,
+} from "@/src/lib/admin/permissions";
 import { createAdminClient } from "@/src/lib/supabase/admin";
 
 function AdminPostCard({ post }) {
@@ -64,59 +68,75 @@ export default async function AdminPage() {
 
   const role = getUserRole(user);
   const isAdmin = role === "admin";
+  const canManageStaff = canManageStaffAccounts(user);
+  const canManagePosts = hasEditorPermission(user, "posts");
+  const canManageTravel = hasEditorPermission(user, "travel");
+  const canManageShop = hasEditorPermission(user, "shop");
 
   // ============================================================
   // GET POSTS
   // ============================================================
 
-  let postsQuery = supabase
-    .from("posts")
-    .select("*")
-    .order("published_at", {
-      ascending: false,
-      nullsFirst: false,
-    });
+  let posts = [];
+  let postsError = null;
+  if (canManagePosts) {
+    let postsQuery = supabase
+      .from("posts")
+      .select("*")
+      .order("published_at", {
+        ascending: false,
+        nullsFirst: false,
+      });
 
-  if (!isAdmin) {
-    const supabaseAdmin = createAdminClient();
-    const { data: assignedPosts } = await supabaseAdmin
-      .from("post_editor_access")
-      .select("post_id")
-      .eq("editor_user_id", user.id);
+    if (!isAdmin) {
+      const supabaseAdmin = createAdminClient();
+      const { data: assignedPosts } = await supabaseAdmin
+        .from("post_editor_access")
+        .select("post_id")
+        .eq("editor_user_id", user.id);
 
-    const assignedPostIds = (assignedPosts || [])
-      .map((assignment) => assignment.post_id)
-      .filter(Boolean);
+      const assignedPostIds = (assignedPosts || [])
+        .map((assignment) => assignment.post_id)
+        .filter(Boolean);
 
-    postsQuery = assignedPostIds.length
-      ? postsQuery.in("id", assignedPostIds)
-      : postsQuery.in("id", ["00000000-0000-0000-0000-000000000000"]);
+      postsQuery = assignedPostIds.length
+        ? postsQuery.in("id", assignedPostIds)
+        : postsQuery.in("id", ["00000000-0000-0000-0000-000000000000"]);
+    }
+
+    const result = await postsQuery;
+    posts = result.data || [];
+    postsError = result.error;
   }
-
-  const { data: posts, error: postsError } = await postsQuery;
 
   // ============================================================
   // GET COMMENTS
   // ============================================================
 
-  let commentsQuery = supabase
-    .from("comments")
-    .select("*")
-    .order("created_at", {
-      ascending: false,
-    });
+  let comments = [];
+  let commentsError = null;
+  if (canManagePosts) {
+    let commentsQuery = supabase
+      .from("comments")
+      .select("*")
+      .order("created_at", {
+        ascending: false,
+      });
 
-  if (!isAdmin) {
-    const ownPosts = (posts || []).map((post) => post.slug).filter(Boolean);
+    if (!isAdmin) {
+      const ownPosts = posts.map((post) => post.slug).filter(Boolean);
 
-    if (ownPosts.length === 0) {
-      commentsQuery = commentsQuery.in("post_slug", ["__no_posts__"]);
-    } else {
-      commentsQuery = commentsQuery.in("post_slug", ownPosts);
+      if (ownPosts.length === 0) {
+        commentsQuery = commentsQuery.in("post_slug", ["__no_posts__"]);
+      } else {
+        commentsQuery = commentsQuery.in("post_slug", ownPosts);
+      }
     }
-  }
 
-  const { data: comments, error: commentsError } = await commentsQuery;
+    const result = await commentsQuery;
+    comments = result.data || [];
+    commentsError = result.error;
+  }
 
   const pendingComments =
     comments?.filter((comment) => comment.status === "pending") || [];
@@ -161,16 +181,16 @@ export default async function AdminPage() {
               </Link>
             )}
 
-            {isAdmin && (
+            {canManageStaff && (
               <Link
                 href="/admin/editors"
                 className="rounded-lg border border-dark px-5 py-3 text-center font-medium transition-opacity hover:opacity-70 whitespace-nowrap"
               >
-                Editors
+                Editors & Admins
               </Link>
             )}
 
-            {isAdmin && (
+            {(isAdmin || canManageTravel) && (
               <Link
                 href="/admin/travel"
                 className="rounded-lg border border-dark px-5 py-3 text-center font-medium transition-opacity hover:opacity-70 whitespace-nowrap"
@@ -198,7 +218,7 @@ export default async function AdminPage() {
             )}
 
             {/* Shop Management */}
-            {isAdmin && (
+            {(isAdmin || canManageShop) && (
               <Link
                 href="/admin/shop"
                 className="rounded-lg border border-dark px-5 py-3 text-center font-medium transition-opacity hover:opacity-70 whitespace-nowrap"
@@ -208,7 +228,7 @@ export default async function AdminPage() {
             )}
 
             {/* Orders Management */}
-            {isAdmin && (
+            {(isAdmin || canManageShop) && (
               <Link
                 href="/admin/orders"
                 className="rounded-lg border border-dark px-5 py-3 text-center font-medium transition-opacity hover:opacity-70 whitespace-nowrap"
@@ -218,19 +238,19 @@ export default async function AdminPage() {
             )}
 
             {/* New Post */}
-            <Link
+            {canManagePosts && <Link
               href="/admin/posts/new"
               className="rounded-lg bg-dark px-5 py-3 text-center font-medium text-light dark:bg-light dark:text-dark transition-opacity hover:opacity-80 whitespace-nowrap"
             >
               + New Post
-            </Link>
+            </Link>}
 
             <LogoutButton />
           </div>
         </div>
 
         {/* COMMENTS / MODERATION */}
-        <section className="mt-16">
+        {canManagePosts && <section className="mt-16">
           <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <h2 className="text-2xl font-semibold">Comments</h2>
@@ -259,12 +279,12 @@ export default async function AdminPage() {
               role={role}
             />
           )}
-        </section>
+        </section>}
 
         {isAdmin && <BannedIPs />}
 
         {/* POSTS */}
-        <section className="mt-20">
+        {canManagePosts && <section className="mt-20">
           <div className="mb-6 flex items-center justify-between">
             <h2 className="text-2xl font-semibold">Published Posts</h2>
             <span className="text-sm opacity-60">
@@ -299,9 +319,9 @@ export default async function AdminPage() {
               <AdminPostCard key={post.id} post={post} />
             ))}
           </div>
-        </section>
+        </section>}
 
-        <section className="mt-20">
+        {canManagePosts && <section className="mt-20">
           <div className="mb-6 flex items-center justify-between">
             <h2 className="text-2xl font-semibold">Drafts</h2>
             <span className="text-sm opacity-60">{draftPosts.length} total</span>
@@ -318,7 +338,7 @@ export default async function AdminPage() {
               ))}
             </div>
           )}
-        </section>
+        </section>}
       </div>
     </main>
   );

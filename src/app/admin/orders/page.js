@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
+import BackLink from "@/src/components/BackLink";
 
 const ORDER_FILTER_STATUSES = [
   "Payment Pending",
@@ -113,7 +114,7 @@ export default function AdminOrdersPage() {
 
   const fetchOrders = (showLoading = true) => {
     if (showLoading) setLoading(true);
-    fetch("/api/admin/orders", { cache: "no-store" })
+    return fetch("/api/admin/orders", { cache: "no-store" })
       .then(async (res) => {
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || "Could not load orders.");
@@ -121,12 +122,22 @@ export default function AdminOrdersPage() {
       })
       .then((data) => {
         setOrders(data.orders || []);
+        setLoadError("");
         setLoading(false);
       })
       .catch((error) => {
         setLoadError(error.message);
         setLoading(false);
       });
+  };
+
+  const handleRefreshRefundStatus = async (orderId) => {
+    setUpdatingId(orderId);
+    try {
+      await fetchOrders(false);
+    } finally {
+      setUpdatingId(null);
+    }
   };
 
   useEffect(() => {
@@ -240,6 +251,9 @@ export default function AdminOrdersPage() {
 
   return (
     <main className="min-h-screen max-w-7xl mx-auto px-6 py-16">
+      <div className="mb-6">
+        <BackLink href="/admin">Back to Dashboard</BackLink>
+      </div>
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Order Management</h1>
@@ -247,12 +261,6 @@ export default function AdminOrdersPage() {
             View, track, update status, and manage shop fulfillment.
           </p>
         </div>
-        <Link
-          href="/admin"
-          className="text-xs opacity-60 hover:opacity-100 transition-opacity underline self-start sm:self-auto"
-        >
-          ← Back to Admin Dashboard
-        </Link>
       </div>
 
       {loadError && (
@@ -327,6 +335,11 @@ export default function AdminOrdersPage() {
                     <span className="text-xs font-mono opacity-50 block">REFUNDED</span>
                     <span className="text-sm font-bold">₹{Number(order.refunded_amount || 0).toFixed(2)}</span>
                     {order.refund_status && <span className="ml-2 text-[10px] uppercase opacity-60">{order.refund_status}</span>}
+                    {order.refund_sync_error && (
+                      <span role="status" className="mt-1 block text-[10px] text-amber-700 dark:text-amber-300">
+                        {order.refund_sync_error}
+                      </span>
+                    )}
                   </div>
                 )}
               </div>
@@ -502,14 +515,20 @@ export default function AdminOrdersPage() {
                   {order.razorpay_payment_id && !order.is_preview && order.refund_status !== "full" && (
                     <button
                       type="button"
-                      disabled={updatingId === order.id || order.refund_status === "pending"}
-                      onClick={() => {
-                        setRefundTarget(order);
-                        setRefundAmount((Number(order.total_amount) - Number(order.refunded_amount || 0)).toFixed(2));
-                      }}
+                      disabled={updatingId === order.id}
+                      onClick={order.refund_status === "pending"
+                        ? () => handleRefreshRefundStatus(order.id)
+                        : () => {
+                          setRefundTarget(order);
+                          setRefundAmount((Number(order.total_amount) - Number(order.refunded_amount || 0)).toFixed(2));
+                        }}
                       className="rounded-xl border border-amber-600/30 px-4 py-2.5 text-xs font-semibold text-amber-700 hover:bg-amber-500/10 disabled:opacity-50 dark:text-amber-300"
                     >
-                      {order.refund_status === "pending" ? "Refund pending" : "Issue refund"}
+                      {updatingId === order.id
+                        ? "Refreshing..."
+                        : order.refund_status === "pending"
+                          ? "Refresh refund status"
+                          : "Issue refund"}
                     </button>
                   )}
 
@@ -555,7 +574,7 @@ export default function AdminOrdersPage() {
               This sends a real refund request to Razorpay. It cannot be undone. For POD orders, this does not stop production or cancel the provider order.
             </p>
             <div className="grid grid-cols-2 gap-3">
-              <button type="button" disabled={updatingId === refundTarget.id} onClick={() => setRefundTarget(null)} className="w-full rounded-lg border border-dark/20 px-3 py-2.5 text-sm">Go back</button>
+              <button type="button" disabled={updatingId === refundTarget.id} onClick={() => setRefundTarget(null)} className="w-full rounded-lg border border-dark/20 px-3 py-2.5 text-sm">Cancel</button>
               <button type="submit" aria-label="Confirm refund" disabled={updatingId === refundTarget.id} className="w-full rounded-lg bg-amber-700 px-3 py-2.5 text-sm font-semibold text-white disabled:opacity-50">{updatingId === refundTarget.id ? "Submitting..." : `Confirm refund ₹${Number(refundAmount || 0).toFixed(2)}`}</button>
             </div>
           </form>

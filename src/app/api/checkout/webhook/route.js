@@ -1,6 +1,8 @@
 import crypto from "crypto";
+import Razorpay from "razorpay";
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/src/lib/supabase/admin";
+import { syncOrderRefunds } from "@/src/lib/commerce/refunds";
 
 export async function POST(request) {
   const secret = process.env.RAZORPAY_WEBHOOK_SECRET;
@@ -69,33 +71,22 @@ export async function POST(request) {
           updated = recovered;
         }
       }
-      if (!updated) {
-        return NextResponse.json({ error: "No matching refund record was found." }, { status: 404 });
+      const orderLookup = supabaseAdmin
+        .from("orders")
+        .select("id, total_amount, razorpay_payment_id");
+      const { data: order, error: orderError } = updated
+        ? await orderLookup.eq("id", updated.order_id).maybeSingle()
+        : await orderLookup.eq("razorpay_payment_id", refund.payment_id).maybeSingle();
+      if (orderError) throw orderError;
+      if (!order) {
+        return NextResponse.json({ error: "No matching order was found for this refund." }, { status: 404 });
       }
 
-      const { data: refunds, error: refundsError } = await supabaseAdmin
-        .from("order_refunds")
-        .select("amount, status")
-        .eq("order_id", updated.order_id);
-      if (refundsError) throw refundsError;
-      const processedAmount = (refunds || [])
-        .filter((row) => row.status === "processed")
-        .reduce((total, row) => total + Number(row.amount), 0);
-      const hasPending = (refunds || []).some((row) => ["pending", "unknown"].includes(row.status));
-      const { data: order, error: orderError } = await supabaseAdmin
-        .from("orders")
-        .select("total_amount")
-        .eq("id", updated.order_id)
-        .single();
-      if (orderError) throw orderError;
-      const refundStatus = hasPending
-        ? "pending"
-        : processedAmount >= Number(order.total_amount) ? "full" : processedAmount > 0 ? "partial" : null;
-      const { error: updateOrderError } = await supabaseAdmin
-        .from("orders")
-        .update({ refunded_amount: processedAmount, refund_status: refundStatus })
-        .eq("id", updated.order_id);
-      if (updateOrderError) throw updateOrderError;
+      const razorpay = new Razorpay({
+        key_id: process.env.RAZORPAY_KEY_ID || process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
+        key_secret: process.env.RAZORPAY_KEY_SECRET,
+      });
+      await syncOrderRefunds(order, supabaseAdmin, razorpay);
       return NextResponse.json({ received: true });
     } catch (error) {
       console.error("Razorpay refund webhook processing error:", error);

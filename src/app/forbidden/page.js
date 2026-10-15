@@ -1,3 +1,5 @@
+import BackLink from "@/src/components/BackLink";
+
 export default function ForbiddenPage() {
   return (
     <main className="min-h-screen flex items-center justify-center px-6">
@@ -16,23 +18,9 @@ export default function ForbiddenPage() {
           this area of After The Silence.
         </p>
 
-        <a
-          href="/"
-          className="
-            mt-8
-            inline-block
-            rounded-lg
-            bg-dark
-            px-5
-            py-3
-            font-medium
-            text-light
-            transition-opacity
-            hover:opacity-80
-          "
-        >
-          ← Return to After The Silence
-        </a>
+        <div className="mt-8">
+          <BackLink href="/">Back to Home</BackLink>
+        </div>
 
       </div>
     </main>

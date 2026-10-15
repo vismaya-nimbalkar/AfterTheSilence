@@ -2,8 +2,9 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useCart } from "@/src/context/CartContext";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
+import PrivacyNotice from "@/src/components/PrivacyNotice";
+import BackLink from "@/src/components/BackLink";
 
 function loadRazorpayScript() {
   return new Promise((resolve) => {
@@ -302,24 +303,16 @@ export default function CheckoutClient({ preview }) {
       <main className="min-h-[60vh] max-w-4xl mx-auto px-6 py-20 text-center">
         <h1 className="text-3xl font-bold mb-4">Your Cart is Empty</h1>
         <p className="text-sm opacity-60 mb-8">Add some products from the shop first.</p>
-        <Link
-          href={`/shop${preview ? "?preview=1" : ""}`}
-          className="inline-block px-6 py-3 bg-dark text-light dark:bg-light dark:text-dark rounded-full font-bold text-sm hover:opacity-80 transition-opacity"
-        >
-          Return to Shop
-        </Link>
+        <BackLink href={`/shop${preview ? "?preview=1" : ""}`}>Back to Shop</BackLink>
       </main>
     );
   }
 
   return (
     <main className="min-h-screen max-w-6xl mx-auto px-6 py-16">
-      <Link
-        href="/shop"
-        className="text-xs opacity-60 hover:opacity-100 transition-opacity mb-8 inline-block"
-      >
-        ← Back to Shop
-      </Link>
+      <div className="mb-8">
+        <BackLink href="/shop">Back to Shop</BackLink>
+      </div>
 
       <h1 className="text-4xl font-bold mb-10">Checkout</h1>
       {preview && (
@@ -671,6 +664,7 @@ export default function CheckoutClient({ preview }) {
             >
               {submitting ? "Processing..." : `Pay ₹${checkoutTotal} via Razorpay`}
             </button>
+            <PrivacyNotice action="placing your order" />
           </div>
         </div>
       </div>

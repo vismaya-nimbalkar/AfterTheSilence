@@ -3,10 +3,11 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { createClient } from "@/src/lib/supabase/client";
-import { getUserRole } from "@/src/lib/admin/permissions";
+import { canManageStaffAccounts } from "@/src/lib/admin/permissions";
 import RichTextEditor from "@/src/components/Admin/RichTextEditor";
 import PostAccessManager from "@/src/components/Admin/PostAccessManager";
 import { slugify } from "@/src/lib/forms";
+import BackLink from "@/src/components/BackLink";
 
 export default function EditPostPage() {
   const params = useParams();
@@ -42,7 +43,7 @@ export default function EditPostPage() {
         return;
       }
 
-      setIsAdmin(getUserRole(user) === "admin");
+      setIsAdmin(canManageStaffAccounts(user));
 
       const response = await fetch(`/api/admin/posts/${params.id}`, {
         cache: "no-store",
@@ -186,12 +187,7 @@ export default function EditPostPage() {
     <main className="min-h-screen px-6 py-16 sm:px-10">
       <div className="mx-auto max-w-4xl">
 
-        <button
-          onClick={() => router.push("/admin")}
-          className="text-sm opacity-60 hover:opacity-100"
-        >
-          ← Back to Dashboard
-        </button>
+        <BackLink href="/admin">Back to Dashboard</BackLink>
 
         <h1 className="mt-8 text-4xl font-bold">
           Edit Post

@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import ProductImageGallery from "@/src/components/shop/ProductImageGallery";
+import BackLink from "@/src/components/BackLink";
 
 // Safari-Safe Canvas Cropper Modal
 function ImageCropModal({ imageSrc, onCancel, onSave }) {
@@ -150,6 +151,10 @@ export default function AdminShopPage() {
   const [promoLoading, setPromoLoading] = useState(true);
   const [promoError, setPromoError] = useState("");
   const [promoMessage, setPromoMessage] = useState("");
+  const [shopEnabled, setShopEnabled] = useState(null);
+  const [siteSettings, setSiteSettings] = useState(null);
+  const [shopVisibilitySaving, setShopVisibilitySaving] = useState(false);
+  const [shopVisibilityError, setShopVisibilityError] = useState("");
   const [promoForm, setPromoForm] = useState({
     code: "",
     discount_type: "percent",
@@ -203,6 +208,14 @@ export default function AdminShopPage() {
 
   useEffect(() => {
     fetchProducts();
+    fetch("/api/admin/site-settings", { cache: "no-store" })
+      .then(async (response) => {
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "Could not load shop visibility.");
+        setSiteSettings(data);
+        setShopEnabled(data.shop_enabled !== false);
+      })
+      .catch((error) => setShopVisibilityError(error.message));
     fetch("/api/admin/shop/promotions", { cache: "no-store" })
       .then(async (response) => {
         const data = await response.json();
@@ -212,6 +225,27 @@ export default function AdminShopPage() {
       .catch((error) => setPromoError(error.message))
       .finally(() => setPromoLoading(false));
   }, []);
+
+  const toggleShopVisibility = async () => {
+    if (shopEnabled === null || !siteSettings) return;
+    setShopVisibilitySaving(true);
+    setShopVisibilityError("");
+    try {
+      const response = await fetch("/api/admin/site-settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ shop_enabled: !shopEnabled }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Could not update shop visibility.");
+      setSiteSettings(data);
+      setShopEnabled(data.shop_enabled !== false);
+    } catch (error) {
+      setShopVisibilityError(error.message);
+    } finally {
+      setShopVisibilitySaving(false);
+    }
+  };
 
   const refreshPromotions = async () => {
     const response = await fetch("/api/admin/shop/promotions", { cache: "no-store" });
@@ -434,17 +468,42 @@ export default function AdminShopPage() {
         className="hidden"
       />
 
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold">Shop Inventory Management</h1>
-          <p className="text-sm opacity-60 mt-1">
-            Add, edit, or remove store products and manage POD mappings.
-          </p>
-        </div>
-        <Link href="/admin" className="text-xs opacity-60 hover:opacity-100 underline">
-          ← Back to Admin
-        </Link>
+      <div className="mb-6">
+        <BackLink href="/admin">Back to Dashboard</BackLink>
       </div>
+      <section className="mb-8 flex flex-col gap-4 rounded-2xl border border-dark/10 p-5 dark:border-light/10 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h2 className="font-semibold">Public shop visibility</h2>
+          <p className="mt-1 text-sm opacity-60">
+            {shopEnabled === null ? "Loading shop status..." : shopEnabled ? "The shop is visible to visitors." : "The shop is hidden from visitors."}
+          </p>
+          {shopVisibilityError && <p role="alert" className="mt-2 text-sm text-red-600">{shopVisibilityError}</p>}
+        </div>
+        <div className="flex flex-wrap items-center gap-3">
+          {shopEnabled === false && (
+            <Link
+              href="/shop?preview=1"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="rounded-lg border border-dark/20 px-4 py-2.5 text-sm font-medium hover:bg-dark/5 dark:border-light/20 dark:hover:bg-light/5"
+            >
+              Preview shop
+            </Link>
+          )}
+          <button
+            type="button"
+            onClick={toggleShopVisibility}
+            disabled={shopEnabled === null || shopVisibilitySaving}
+            className="rounded-lg bg-dark px-4 py-2.5 text-sm font-medium text-light transition-opacity hover:opacity-80 disabled:opacity-50 dark:bg-light dark:text-dark"
+          >
+            {shopVisibilitySaving ? "Saving..." : shopEnabled ? "Turn shop off" : "Turn shop on"}
+          </button>
+        </div>
+      </section>
+      <h1 className="text-3xl font-bold">Shop Inventory Management</h1>
+      <p className="text-sm opacity-60 mt-1 mb-8">
+        Add, edit, or remove store products and manage POD mappings.
+      </p>
 
       <section className="rounded-2xl border border-dark/10 bg-white p-6 shadow-sm dark:border-light/10 dark:bg-zinc-900/50 sm:p-8">
         <div className="flex justify-between items-center">

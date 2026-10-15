@@ -2,8 +2,8 @@
 
 import { useEffect, useState, use } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import { createClient } from "@/src/lib/supabase/client";
+import BackLink from "@/src/components/BackLink";
 
 export default function EditProductPage({ params }) {
   const { id } = use(params);
@@ -132,12 +132,9 @@ export default function EditProductPage({ params }) {
   return (
     <main className="min-h-screen px-6 py-12 sm:px-10">
       <div className="mx-auto max-w-4xl">
-        <Link
-          href="/admin/shop"
-          className="text-xs opacity-60 hover:opacity-100 transition-opacity mb-6 inline-block"
-        >
-          ← Back to Shop Admin
-        </Link>
+        <div className="mb-6">
+          <BackLink href="/admin/shop">Back to Shop Admin</BackLink>
+        </div>
 
         <h1 className="text-3xl font-bold mb-2">Edit Product</h1>
         <p className="text-sm opacity-60 mb-8">Modify details, stock, pricing, and images.</p>

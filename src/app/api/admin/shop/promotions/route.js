@@ -1,13 +1,16 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/src/lib/supabase/server";
 import { createAdminClient } from "@/src/lib/supabase/admin";
-import { getUserRole } from "@/src/lib/admin/permissions";
+import { hasEditorPermission } from "@/src/lib/admin/permissions";
 
 async function getAuthorizedAdmin() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user || getUserRole(user) !== "admin") {
+  if (!user) {
     return { response: NextResponse.json({ error: "Unauthorized." }, { status: 401 }) };
+  }
+  if (!hasEditorPermission(user, "shop")) {
+    return { response: NextResponse.json({ error: "You do not have permission to manage the shop." }, { status: 403 }) };
   }
   return { supabaseAdmin: createAdminClient() };
 }

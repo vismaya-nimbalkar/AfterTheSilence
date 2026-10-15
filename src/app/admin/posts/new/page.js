@@ -3,10 +3,11 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/src/lib/supabase/client";
-import { getUserRole } from "@/src/lib/admin/permissions";
+import { canManageStaffAccounts } from "@/src/lib/admin/permissions";
 import RichTextEditor from "@/src/components/Admin/RichTextEditor";
 import PostAccessManager from "@/src/components/Admin/PostAccessManager";
 import { slugify } from "@/src/lib/forms";
+import BackLink from "@/src/components/BackLink";
 
 /* ============================================================
    SLUG
@@ -74,7 +75,7 @@ export default function NewPostPage() {
 
     supabase.auth.getUser().then(({ data: userData }) => {
       if (mounted && userData.user) {
-        setIsAdmin(getUserRole(userData.user) === "admin");
+        setIsAdmin(canManageStaffAccounts(userData.user));
       }
     });
 
@@ -410,42 +411,13 @@ export default function NewPostPage() {
             HEADER
         ===================================================== */}
 
-        <div className="mb-10 flex items-center justify-between">
+        <div className="mb-6">
+          <BackLink href="/admin">Back to Dashboard</BackLink>
+        </div>
 
-          <div>
-
-            <p className="text-sm opacity-60">
-              After The Silence
-            </p>
-
-            <h1 className="mt-2 text-4xl font-bold">
-              New Post
-            </h1>
-
-          </div>
-
-          <button
-            type="button"
-            onClick={() =>
-              router.push(
-                "/admin"
-              )
-            }
-            className="
-              rounded-lg
-              border
-              border-dark/20
-              px-4
-              py-2
-              text-sm
-              transition-colors
-              hover:bg-dark
-              hover:text-light
-            "
-          >
-            ← Back
-          </button>
-
+        <div className="mb-10">
+          <p className="text-sm opacity-60">After The Silence</p>
+          <h1 className="mt-2 text-4xl font-bold">New Post</h1>
         </div>
 
         {/* ====================================================

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/src/lib/supabase/server";
 import { createAdminClient } from "@/src/lib/supabase/admin";
-import { getUserRole } from "@/src/lib/admin/permissions";
+import { hasEditorPermission } from "@/src/lib/admin/permissions";
 import { slugify } from "@/src/lib/forms";
 
 async function getAdminClient() {
@@ -16,7 +16,7 @@ async function getAdminClient() {
     };
   }
 
-  if (getUserRole(user) !== "admin") {
+  if (!hasEditorPermission(user, "shop")) {
     return {
       response: NextResponse.json({ error: "You do not have permission to manage products." }, { status: 403 }),
     };

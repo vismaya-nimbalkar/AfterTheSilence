@@ -7,6 +7,7 @@ import { createClient } from "@/src/lib/supabase/client";
 import { getUserRole } from "@/src/lib/admin/permissions";
 import LogoutButton from "@/src/components/Admin/LogoutButton";
 import { useConfirmDialog } from "@/src/components/Admin/ConfirmDialog";
+import BackLink from "@/src/components/BackLink";
 
 export default function AdminSecurityPage() {
   const router = useRouter();
@@ -924,21 +925,9 @@ export default function AdminSecurityPage() {
 
         <div className="mb-12">
 
-          <button
-            type="button"
-            onClick={() =>
-              router.push("/admin")
-            }
-            className="
-              mb-6
-              text-sm
-              opacity-60
-              transition-opacity
-              hover:opacity-100
-            "
-          >
-            ← Back to {isAdmin ? "Admin" : "Editor"}
-          </button>
+          <div className="mb-6">
+            <BackLink href="/admin">Back to {isAdmin ? "Admin" : "Editor"}</BackLink>
+          </div>
 
           <p className="text-sm opacity-60">
             After The Silence

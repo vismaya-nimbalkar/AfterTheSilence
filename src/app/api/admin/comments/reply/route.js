@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/src/lib/supabase/server";
 import { createAdminClient } from "@/src/lib/supabase/admin";
+import { hasEditorPermission } from "@/src/lib/admin/permissions";
 
 export async function POST(request) {
   try {
@@ -14,13 +15,13 @@ export async function POST(request) {
       data: { user },
     } = await supabase.auth.getUser();
 
-    if (!user) {
+    if (!user || !hasEditorPermission(user, "posts")) {
       return NextResponse.json(
         {
-          error: "Unauthorized.",
+          error: user ? "You do not have permission to manage post comments." : "Unauthorized.",
         },
         {
-          status: 401,
+          status: user ? 403 : 401,
         }
       );
     }

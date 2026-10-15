@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import TravelPageContent from "@/src/components/TravelPageContent";
 import { createClient } from "@/src/lib/supabase/server";
-import { getUserRole } from "@/src/lib/admin/permissions";
+import { hasEditorPermission } from "@/src/lib/admin/permissions";
 
 export const metadata = { title: "Travel preview" };
 
@@ -9,7 +9,7 @@ export default async function AdminTravelPreviewPage() {
   const supabase = await createClient();
   const { data: { user }, error: userError } = await supabase.auth.getUser();
 
-  if (userError || !user || getUserRole(user) !== "admin") {
+  if (userError || !user || !hasEditorPermission(user, "travel")) {
     redirect("/forbidden");
   }
 

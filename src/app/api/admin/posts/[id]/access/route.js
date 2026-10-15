@@ -1,15 +1,15 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/src/lib/supabase/server";
 import { createAdminClient } from "@/src/lib/supabase/admin";
-import { getUserRole } from "@/src/lib/admin/permissions";
+import { canManageStaffAccounts } from "@/src/lib/admin/permissions";
 
-async function requireAdmin() {
+async function requireAccountManager() {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user || getUserRole(user) !== "admin") {
+  if (!user || !canManageStaffAccounts(user)) {
     return { response: NextResponse.json({ error: "Unauthorized." }, { status: 401 }) };
   }
 
@@ -18,7 +18,7 @@ async function requireAdmin() {
 
 export async function GET(request, { params }) {
   try {
-    const { response, supabaseAdmin } = await requireAdmin();
+    const { response, supabaseAdmin } = await requireAccountManager();
     if (response) return response;
 
     const { id: postId } = await params;
@@ -27,6 +27,7 @@ export async function GET(request, { params }) {
         supabaseAdmin
           .from("editor_accounts")
           .select("id, user_id, email, name")
+          .eq("role", "editor")
           .order("name", { ascending: true }),
         supabaseAdmin
           .from("post_editor_access")
@@ -56,7 +57,7 @@ export async function GET(request, { params }) {
 
 export async function POST(request, { params }) {
   try {
-    const { response, user, supabaseAdmin } = await requireAdmin();
+    const { response, user, supabaseAdmin } = await requireAccountManager();
     if (response) return response;
 
     const { id: postId } = await params;
@@ -67,7 +68,7 @@ export async function POST(request, { params }) {
     }
 
     const [{ data: editor }, { data: post }] = await Promise.all([
-      supabaseAdmin.from("editor_accounts").select("user_id").eq("user_id", editorUserId).maybeSingle(),
+      supabaseAdmin.from("editor_accounts").select("user_id, role").eq("user_id", editorUserId).eq("role", "editor").maybeSingle(),
       supabaseAdmin.from("posts").select("id").eq("id", postId).maybeSingle(),
     ]);
 
@@ -89,7 +90,7 @@ export async function POST(request, { params }) {
 
 export async function DELETE(request, { params }) {
   try {
-    const { response, supabaseAdmin } = await requireAdmin();
+    const { response, supabaseAdmin } = await requireAccountManager();
     if (response) return response;
 
     const { id: postId } = await params;

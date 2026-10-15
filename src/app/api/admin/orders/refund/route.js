@@ -3,13 +3,17 @@ import Razorpay from "razorpay";
 import { NextResponse } from "next/server";
 import { createClient } from "@/src/lib/supabase/server";
 import { createAdminClient } from "@/src/lib/supabase/admin";
-import { getUserRole } from "@/src/lib/admin/permissions";
+import { hasEditorPermission } from "@/src/lib/admin/permissions";
+import { syncOrderRefunds } from "@/src/lib/commerce/refunds";
 
 async function getAuthorizedAdmin() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user || getUserRole(user) !== "admin") {
+  if (!user) {
     return { response: NextResponse.json({ error: "Unauthorized." }, { status: 401 }) };
+  }
+  if (!hasEditorPermission(user, "shop")) {
+    return { response: NextResponse.json({ error: "You do not have permission to manage shop refunds." }, { status: 403 }) };
   }
   return { user, supabaseAdmin: createAdminClient() };
 }
@@ -65,43 +69,13 @@ export async function POST(request) {
     }
     refundRecordId = refundId;
 
+    let gatewayRefund;
     try {
-      const gatewayRefund = await razorpay.payments.refund(order.razorpay_payment_id, {
+      gatewayRefund = await razorpay.payments.refund(order.razorpay_payment_id, {
         amount: Math.round(refundAmount * 100),
         notes: { store_order_id: order.id, admin_user_id: user.id },
         receipt: `refund_${String(refundId).replaceAll("-", "").slice(0, 20)}`,
       });
-      const status = gatewayRefund.status === "processed" ? "processed" : "pending";
-      const { data: savedRefund, error: updateError } = await supabaseAdmin
-        .from("order_refunds")
-        .update({
-          razorpay_refund_id: gatewayRefund.id,
-          status,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", refundId)
-        .select()
-        .single();
-      if (updateError) throw updateError;
-
-      const { data: refunds, error: refundsError } = await supabaseAdmin
-        .from("order_refunds")
-        .select("amount, status")
-        .eq("order_id", order.id);
-      if (refundsError) throw refundsError;
-      const processedAmount = (refunds || [])
-        .filter((refund) => refund.status === "processed")
-        .reduce((total, refund) => total + Number(refund.amount), 0);
-      const refundStatus = (refunds || []).some((refund) => ["pending", "unknown"].includes(refund.status))
-        ? "pending"
-        : processedAmount >= Number(order.total_amount) ? "full" : processedAmount > 0 ? "partial" : null;
-      const { error: orderUpdateError } = await supabaseAdmin
-        .from("orders")
-        .update({ refunded_amount: processedAmount, refund_status: refundStatus })
-        .eq("id", order.id);
-      if (orderUpdateError) throw orderUpdateError;
-
-      return NextResponse.json({ success: true, refund: savedRefund, refundedAmount: processedAmount });
     } catch (gatewayError) {
       const uncertain = !gatewayError.statusCode && !gatewayError.status;
       const { error: recordError } = await supabaseAdmin
@@ -121,6 +95,28 @@ export async function POST(request) {
       }
       throw gatewayError;
     }
+
+    const status = gatewayRefund.status === "processed" ? "processed" : "pending";
+    const { data: savedRefund, error: updateError } = await supabaseAdmin
+      .from("order_refunds")
+      .update({
+        razorpay_refund_id: gatewayRefund.id,
+        status,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", refundId)
+      .select()
+      .single();
+    if (updateError) throw updateError;
+
+    const orderState = await syncOrderRefunds(order, supabaseAdmin, razorpay);
+
+    return NextResponse.json({
+      success: true,
+      refund: savedRefund,
+      refundedAmount: orderState.refunded_amount,
+      refundStatus: orderState.refund_status,
+    });
   } catch (error) {
     console.error("Admin refund processing error:", error);
     if (refundRecordId && !error.statusCode && !error.status) {

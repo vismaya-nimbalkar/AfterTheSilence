@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/src/lib/supabase/server";
 import { createAdminClient } from "@/src/lib/supabase/admin";
-import { getUserRole } from "@/src/lib/admin/permissions";
+import { getUserRole, hasEditorPermission } from "@/src/lib/admin/permissions";
 import { slugify } from "@/src/lib/forms";
 
 export async function POST(request) {
@@ -13,6 +13,9 @@ export async function POST(request) {
 
     if (!user || !["admin", "editor"].includes(getUserRole(user))) {
       return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
+    }
+    if (!hasEditorPermission(user, "posts")) {
+      return NextResponse.json({ error: "You do not have permission to manage posts." }, { status: 403 });
     }
 
     const body = await request.json();

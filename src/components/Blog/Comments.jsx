@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/src/lib/supabase/client";
+import PrivacyNotice from "@/src/components/PrivacyNotice";
 
 export default function Comments({ slug }) {
   const [comments, setComments] = useState([]);
@@ -645,6 +646,7 @@ export default function Comments({ slug }) {
                 ? "Submitting..."
                 : "Submit Comment"}
             </button>
+            <PrivacyNotice action="posting your comment" />
 
           </form>
 

@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCart } from "@/src/context/CartContext";
 import ProductImageGallery from "@/src/components/shop/ProductImageGallery";
+import BackLink from "@/src/components/BackLink";
 
 export default function ProductClient({ slug, preview }) {
   const router = useRouter();
@@ -60,24 +60,16 @@ export default function ProductClient({ slug, preview }) {
       <main className="min-h-[60vh] max-w-5xl mx-auto px-6 py-16 sm:px-10 text-center">
         <h1 className="text-2xl font-bold mb-4">{loadError ? "Could Not Load Product" : "Product Not Found"}</h1>
         {loadError && <p role="alert" className="mb-4 text-sm text-red-700 dark:text-red-300">{loadError}</p>}
-        <Link
-          href={`/shop${preview ? "?preview=1" : ""}`}
-          className="text-xs opacity-60 hover:opacity-100 transition-opacity underline"
-        >
-          ← Back to Shop
-        </Link>
+        <BackLink href={`/shop${preview ? "?preview=1" : ""}`}>Back to Shop</BackLink>
       </main>
     );
   }
 
   return (
     <main className="min-h-screen max-w-5xl mx-auto px-6 py-16 sm:px-10">
-      <Link
-        href={`/shop${preview ? "?preview=1" : ""}`}
-        className="text-xs opacity-60 hover:opacity-100 transition-opacity mb-8 inline-block"
-      >
-        ← Back to Shop
-      </Link>
+      <div className="mb-8">
+        <BackLink href={`/shop${preview ? "?preview=1" : ""}`}>Back to Shop</BackLink>
+      </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-10 lg:gap-14 items-start">
         {/* Product Image */}

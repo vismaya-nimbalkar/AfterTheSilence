@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/src/lib/supabase/client";
 import { getUserRole } from "@/src/lib/admin/permissions";
+import PrivacyNotice from "@/src/components/PrivacyNotice";
 
 export default function EditorLoginPage() {
   const router = useRouter();
@@ -85,6 +86,7 @@ export default function EditorLoginPage() {
         >
           {loading ? "Signing in..." : "Sign in as editor"}
         </button>
+        <PrivacyNotice action="signing in" />
       </form>
     </main>
   );

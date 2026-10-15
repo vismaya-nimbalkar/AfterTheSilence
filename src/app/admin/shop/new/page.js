@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import { createClient } from "@/src/lib/supabase/client";
+import BackLink from "@/src/components/BackLink";
 
 export default function NewProductPage() {
   const router = useRouter();
@@ -108,13 +108,9 @@ export default function NewProductPage() {
   return (
     <main className="min-h-screen px-6 py-12 sm:px-10">
       <div className="mx-auto max-w-4xl">
-        {/* Back Button */}
-        <Link
-          href="/admin"
-          className="text-xs opacity-60 hover:opacity-100 transition-opacity mb-6 inline-block"
-        >
-          ← Back to Dashboard
-        </Link>
+        <div className="mb-6">
+          <BackLink href="/admin">Back to Dashboard</BackLink>
+        </div>
 
         {/* Title */}
         <h1 className="text-3xl font-bold mb-2">Create New Product</h1>

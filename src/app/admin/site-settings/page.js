@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import RichTextEditor from "@/src/components/Admin/RichTextEditor";
+import BackLink from "@/src/components/BackLink";
 
 export default function SiteSettingsPage() {
   const router = useRouter();
@@ -18,11 +18,9 @@ export default function SiteSettingsPage() {
     instagram_url: "",
     reddit_url: "",
     discord_url: "",
-    shop_enabled: true,
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -42,19 +40,19 @@ export default function SiteSettingsPage() {
   const saveSettings = async (event) => {
     event.preventDefault();
     setSaving(true);
-    setMessage("");
     setError("");
 
     try {
+      const settings = { ...form };
+      delete settings.shop_enabled;
       const response = await fetch("/api/admin/site-settings", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify(settings),
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "Could not save site settings.");
-      setForm((prev) => ({ ...prev, ...result }));
-      setMessage("Site settings saved.");
+      router.push("/admin");
     } catch (saveError) {
       setError(saveError.message);
     } finally {
@@ -67,41 +65,13 @@ export default function SiteSettingsPage() {
   return (
     <main className="min-h-screen px-6 py-16 sm:px-10">
       <div className="mx-auto max-w-3xl">
-        <button type="button" onClick={() => router.push("/admin")} className="text-sm opacity-60 hover:opacity-100">Back to Dashboard</button>
+        <BackLink href="/admin">Back to Dashboard</BackLink>
         <h1 className="mt-8 text-4xl font-bold">Site settings</h1>
         <p className="mt-2 max-w-2xl text-sm leading-6 opacity-60">Update public contact details, social links, and About page copy from here.</p>
 
         {error && <div className="mt-6 rounded-lg border border-red-500/30 p-4 text-red-600">{error}</div>}
-        {message && <div className="mt-6 rounded-lg border border-green-500/30 bg-green-500/10 p-4 text-green-700">{message}</div>}
 
         <form onSubmit={saveSettings} className="mt-10 space-y-8">
-          <section className="rounded-2xl border border-dark/20 p-6">
-            <h2 className="text-2xl font-bold">Shop visibility</h2>
-            <p className="mt-2 text-sm opacity-60">Turn off public shop pages and checkout without removing your products.</p>
-            <label className="mt-5 flex items-start gap-3 text-sm">
-              <input
-                type="checkbox"
-                checked={form.shop_enabled !== false}
-                onChange={(event) => updateField("shop_enabled", event.target.checked)}
-                className="mt-1"
-              />
-              <span>
-                <span className="block font-semibold">Shop is enabled</span>
-                <span className="mt-1 block text-xs opacity-60">When disabled, visitors cannot browse products or start checkout.</span>
-              </span>
-            </label>
-            {form.shop_enabled === false && (
-              <Link
-                href="/shop?preview=1"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="mt-5 inline-flex rounded-lg border border-dark/20 px-4 py-2.5 text-sm font-medium hover:bg-dark/5"
-              >
-                Preview shop as admin
-              </Link>
-            )}
-          </section>
-
           <section className="rounded-2xl border border-dark/20 p-6">
             <h2 className="text-2xl font-bold">About page</h2>
             <div className="mt-5 space-y-5">

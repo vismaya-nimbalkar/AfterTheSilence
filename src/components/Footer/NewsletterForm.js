@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/src/lib/supabase/client";
+import PrivacyNotice from "@/src/components/PrivacyNotice";
 
 const DISCLAIMER_STORAGE_KEY = "afterTheSilenceDisclaimerAccepted";
 
@@ -126,6 +127,8 @@ export default function NewsletterForm() {
           {loading ? "Subscribing..." : "Subscribe"}
         </button>
       </form>
+
+      <PrivacyNotice action="subscribing" />
 
       {/* Status message */}
       {status && (

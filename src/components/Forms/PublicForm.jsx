@@ -2,6 +2,7 @@
 
 import { useMemo, useRef, useState } from "react";
 import { isAnswerEmpty } from "@/src/lib/forms";
+import PrivacyNotice from "@/src/components/PrivacyNotice";
 
 export default function PublicForm({ form }) {
   const [answers, setAnswers] = useState({});
@@ -271,6 +272,7 @@ export default function PublicForm({ form }) {
             )}
           </div>
           </fieldset>
+          <PrivacyNotice action="submitting your response" />
           {state.error && <p className="rounded-lg border border-red-500/30 p-4 text-red-600">{state.error}</p>}
         </form>
       </div>

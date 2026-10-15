@@ -1,5 +1,6 @@
 "use client";
 import React from "react";
+import PrivacyNotice from "@/src/components/PrivacyNotice";
 
 export default function ContactForm() {
   return (
@@ -69,6 +70,7 @@ export default function ContactForm() {
           >
             Submit
           </button>
+          <PrivacyNotice action="sending your message" />
         </div>
       </form>
     </div>

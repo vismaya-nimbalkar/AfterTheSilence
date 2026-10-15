@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import BackLink from "@/src/components/BackLink";
 import { useConfirmDialog } from "@/src/components/Admin/ConfirmDialog";
 
 function downloadCsv(rows, questions) {
@@ -37,7 +37,6 @@ export default function FormResponsesPage({ params }) {
   const [responses, setResponses] = useState([]);
   const [error, setError] = useState("");
   const [deletingId, setDeletingId] = useState(null);
-  const router = useRouter();
   const { confirm, dialog } = useConfirmDialog();
 
   useEffect(() => {
@@ -108,13 +107,7 @@ export default function FormResponsesPage({ params }) {
     <main className="min-h-screen px-6 py-12 sm:px-10">
       {dialog}
       <div className="mx-auto max-w-7xl">
-        <button
-          type="button"
-          onClick={() => router.push("/admin/forms")}
-          className="text-sm opacity-60 hover:opacity-100"
-        >
-          Back to Forms
-        </button>
+        <BackLink href="/admin/forms">Back to Forms</BackLink>
         <div className="mt-8 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <p className="text-sm uppercase tracking-[0.18em] opacity-50">
