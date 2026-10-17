@@ -18,33 +18,39 @@ export default function EditorLoginPage() {
     setError("");
     setLoading(true);
 
-    const supabase = createClient();
-    const { data, error: loginError } = await supabase.auth.signInWithPassword({
-      email: email.trim(),
-      password,
-    });
+    try {
+      const supabase = createClient();
+      const { data, error: loginError } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password,
+      });
 
-    if (loginError || !data.user) {
-      setError("Incorrect email or password.");
+      if (loginError || !data.user) {
+        setError("Incorrect email or password.");
+        setLoading(false);
+        return;
+      }
+
+      if (getUserRole(data.user) !== "editor") {
+        await supabase.auth.signOut();
+        setError("This is the admin login. Please use the administrator sign-in page.");
+        setLoading(false);
+        return;
+      }
+
+      await fetch("/api/editor/security", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ step: "mfa" }),
+      });
+
+      router.replace("/admin");
+      router.refresh();
+    } catch (error) {
+      console.error("Editor login error:", error);
+      setError(error?.message || "Something went wrong while signing in.");
       setLoading(false);
-      return;
     }
-
-    if (getUserRole(data.user) !== "editor") {
-      await supabase.auth.signOut();
-      setError("This is the admin login. Please use the administrator sign-in page.");
-      setLoading(false);
-      return;
-    }
-
-    await fetch("/api/editor/security", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ step: "mfa" }),
-    });
-
-    router.replace("/admin");
-    router.refresh();
   };
 
   return (

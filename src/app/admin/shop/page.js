@@ -4,9 +4,10 @@ import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import ProductImageGallery from "@/src/components/shop/ProductImageGallery";
 import BackLink from "@/src/components/BackLink";
+import { useConfirmDialog } from "@/src/components/Admin/ConfirmDialog";
 
 // Safari-Safe Canvas Cropper Modal
-function ImageCropModal({ imageSrc, onCancel, onSave }) {
+function ImageCropModal({ imageSrc, onCancel, onSave, onError }) {
   const [zoom, setZoom] = useState(1);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
@@ -79,7 +80,7 @@ function ImageCropModal({ imageSrc, onCancel, onSave }) {
       const croppedDataUrl = canvas.toDataURL("image/jpeg", 0.9);
       onSave(croppedDataUrl);
     } catch (err) {
-      alert("Error saving canvas image. Please try another image file.");
+      onError("Error saving canvas image. Please try another image file.");
     }
   };
 
@@ -143,6 +144,7 @@ function ImageCropModal({ imageSrc, onCancel, onSave }) {
 }
 
 export default function AdminShopPage() {
+  const { confirm, alert, dialog } = useConfirmDialog();
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
@@ -172,9 +174,11 @@ export default function AdminShopPage() {
     slug: "",
     description: "",
     price: "",
-    is_pod: true,
     is_in_stock: true,
-    qikink_sku: "",
+    shipping_weight_kg: "",
+    shipping_length_cm: "",
+    shipping_width_cm: "",
+    shipping_height_cm: "",
     images: Array(6).fill(null),
   });
 
@@ -299,7 +303,11 @@ export default function AdminShopPage() {
   };
 
   const handleDeletePromo = async (promotion) => {
-    if (!confirm(`Delete promo code "${promotion.code}"? Existing redemption history will be kept.`)) return;
+    if (!await confirm({
+      title: "Delete promo code?",
+      message: `Delete "${promotion.code}"? Existing redemption history will be kept.`,
+      confirmLabel: "Delete promo code",
+    })) return;
     setPromoError("");
     setPromoMessage("");
     try {
@@ -373,9 +381,11 @@ export default function AdminShopPage() {
       slug: product.slug || "",
       description: product.description || "",
       price: product.price ? String(product.price) : "",
-      is_pod: product.is_pod !== false,
       is_in_stock: product.is_in_stock !== false,
-      qikink_sku: product.qikink_sku || "",
+      shipping_weight_kg: product.shipping_weight_kg ? String(product.shipping_weight_kg) : "",
+      shipping_length_cm: product.shipping_length_cm ? String(product.shipping_length_cm) : "",
+      shipping_width_cm: product.shipping_width_cm ? String(product.shipping_width_cm) : "",
+      shipping_height_cm: product.shipping_height_cm ? String(product.shipping_height_cm) : "",
       images: slots,
     });
 
@@ -389,15 +399,21 @@ export default function AdminShopPage() {
       slug: "",
       description: "",
       price: "",
-      is_pod: true,
       is_in_stock: true,
-      qikink_sku: "",
+      shipping_weight_kg: "",
+      shipping_length_cm: "",
+      shipping_width_cm: "",
+      shipping_height_cm: "",
       images: Array(6).fill(null),
     });
   };
 
   const handleDeleteProduct = async (id, title) => {
-    if (!confirm(`Are you sure you want to delete "${title}"?`)) return;
+    if (!await confirm({
+      title: "Delete product?",
+      message: `Are you sure you want to permanently delete "${title}"?`,
+      confirmLabel: "Delete product",
+    })) return;
 
     try {
       const res = await fetch(`/api/admin/products?id=${id}`, {
@@ -409,7 +425,7 @@ export default function AdminShopPage() {
       if (editingId === id) handleCancelEdit();
       fetchProducts();
     } catch (err) {
-      alert(`Delete Error: ${err.message}`);
+      await alert(`Delete error: ${err.message}`, "Could not delete product");
     }
   };
 
@@ -427,13 +443,16 @@ export default function AdminShopPage() {
         ? { ...entry, is_in_stock: nextStock }
         : entry));
     } catch (error) {
-      alert(`Inventory update failed: ${error.message}`);
+      await alert(`Inventory update failed: ${error.message}`, "Could not update inventory");
     }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!form.title || !form.price) return alert("Title and Price are required.");
+    if (!form.title || !form.price) {
+      await alert("Enter a product title and price before saving.", "Product details required");
+      return;
+    }
 
     const validImages = form.images.filter((img) => img !== null);
 
@@ -453,7 +472,7 @@ export default function AdminShopPage() {
       handleCancelEdit();
       fetchProducts();
     } catch (err) {
-      alert(`Error saving product: ${err.message}`);
+      await alert(`Error saving product: ${err.message}`, "Could not save product");
     }
   };
 
@@ -502,11 +521,11 @@ export default function AdminShopPage() {
       </section>
       <h1 className="text-3xl font-bold">Shop Inventory Management</h1>
       <p className="text-sm opacity-60 mt-1 mb-8">
-        Add, edit, or remove store products and manage POD mappings.
+        Add, edit, and manage store products.
       </p>
 
       <section className="rounded-2xl border border-dark/10 bg-white p-6 shadow-sm dark:border-light/10 dark:bg-zinc-900/50 sm:p-8">
-        <div className="flex justify-between items-center">
+        <div className="flex items-start justify-between gap-4">
           <h2 className="text-xl font-bold">{editingId ? "Edit Product" : "Add New Product"}</h2>
           {editingId && (
             <button type="button" onClick={handleCancelEdit} className="text-xs text-red-600 dark:text-red-400 font-semibold hover:underline">
@@ -515,58 +534,18 @@ export default function AdminShopPage() {
           )}
         </div>
         <form onSubmit={handleSubmit} className="mt-6 space-y-7">
-          <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-3">
-            <div className="space-y-5">
-              <div>
-                <label className="mb-2 block text-xs font-semibold opacity-70">Product Title *</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="Over-sized Graphic Tee"
-                  value={form.title}
-                  onChange={(e) => setForm({ ...form, title: e.target.value })}
-                  className="w-full rounded-xl border border-dark/10 bg-transparent px-4 py-3 text-sm focus:outline-none dark:border-light/10"
-                />
-              </div>
-              <label className="flex min-h-12 items-center gap-3 rounded-xl border border-dark/10 px-4 py-3 text-sm dark:border-light/10">
-                <input
-                  type="checkbox"
-                  checked={form.is_in_stock !== false}
-                  onChange={(event) => setForm({ ...form, is_in_stock: event.target.checked })}
-                />
-                <span>In stock and available to buy</span>
-              </label>
+          <div className="grid grid-cols-1 items-end gap-5 md:grid-cols-2">
+            <div>
+              <label className="mb-2 block text-xs font-semibold opacity-70">Product title *</label>
+              <input
+                type="text"
+                required
+                placeholder="Over-sized Graphic Tee"
+                value={form.title}
+                onChange={(e) => setForm({ ...form, title: e.target.value })}
+                className="w-full rounded-xl border border-dark/10 bg-transparent px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-dark/10 dark:border-light/10 dark:focus:ring-light/10"
+              />
             </div>
-
-            <fieldset className="space-y-2 lg:col-span-2">
-              <legend className="mb-2 block text-xs font-semibold opacity-70">Order fulfillment</legend>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                {[
-                  { value: true, title: "Print-on-demand (POD)", detail: "Qikink produces and ships paid orders." },
-                  { value: false, title: "Normal order", detail: "You handle fulfillment and tracking." },
-                ].map((option) => (
-                  <label
-                    key={String(option.value)}
-                    className={`flex min-h-24 cursor-pointer items-start gap-3 rounded-xl border p-4 transition-colors ${form.is_pod === option.value ? "border-dark ring-1 ring-dark/10 dark:border-light dark:ring-light/10" : "border-dark/10 hover:border-dark/30 dark:border-light/10 dark:hover:border-light/30"}`}
-                  >
-                    <input
-                      type="radio"
-                      name="inventory_is_pod"
-                      checked={form.is_pod === option.value}
-                      onChange={() => setForm((current) => ({ ...current, is_pod: option.value }))}
-                      className="mt-0.5"
-                    />
-                    <span>
-                      <span className="block text-sm font-semibold">{option.title}</span>
-                      <span className="mt-1 block text-xs leading-relaxed opacity-60">{option.detail}</span>
-                    </span>
-                  </label>
-                ))}
-              </div>
-            </fieldset>
-          </div>
-
-          <div className={`grid grid-cols-1 gap-5 ${form.is_pod ? "md:grid-cols-2 xl:grid-cols-3" : "md:grid-cols-2"}`}>
             <div>
               <label className="mb-2 block text-xs font-semibold opacity-70">Price (₹) *</label>
               <input
@@ -577,28 +556,44 @@ export default function AdminShopPage() {
                 placeholder="999"
                 value={form.price}
                 onChange={(e) => setForm({ ...form, price: e.target.value })}
-                className="w-full rounded-xl border border-dark/10 bg-transparent px-4 py-3 text-sm focus:outline-none dark:border-light/10"
+                className="w-full rounded-xl border border-dark/10 bg-transparent px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-dark/10 dark:border-light/10 dark:focus:ring-light/10"
               />
             </div>
-
-            {form.is_pod && (
-              <>
-                <div>
-                  <label className="mb-2 block text-xs font-semibold opacity-70">Qikink My Products SKU *</label>
-                  <input
-                    type="text"
-                    required
-                    maxLength={50}
-                    placeholder="SKU from your Qikink My Products catalog"
-                    value={form.qikink_sku}
-                    onChange={(e) => setForm({ ...form, qikink_sku: e.target.value })}
-                    className="w-full rounded-xl border border-dark/10 bg-transparent px-4 py-3 font-mono text-xs focus:outline-none dark:border-light/10"
-                  />
-                  <p className="mt-2 text-xs leading-relaxed opacity-50">Create the product and artwork in Qikink My Products first, then enter its exact SKU here.</p>
-                </div>
-              </>
-            )}
+            <label className="flex min-h-12 items-center gap-3 rounded-xl border border-dark/10 px-4 py-3 text-sm dark:border-light/10 md:col-span-2">
+              <input
+                type="checkbox"
+                checked={form.is_in_stock !== false}
+                onChange={(event) => setForm({ ...form, is_in_stock: event.target.checked })}
+              />
+              <span>In stock and available to buy</span>
+            </label>
           </div>
+
+          <fieldset className="space-y-3">
+            <legend className="block text-xs font-semibold opacity-70">Packed product dimensions for Shiprocket</legend>
+            <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+              {[
+                ["shipping_weight_kg", "Weight (kg)"],
+                ["shipping_length_cm", "Length (cm)"],
+                ["shipping_width_cm", "Width (cm)"],
+                ["shipping_height_cm", "Height (cm)"],
+              ].map(([key, label]) => (
+                <label key={key} className="text-xs opacity-70">
+                  {label}
+                  <input
+                    type="number"
+                    required
+                    min="0.01"
+                    step="0.01"
+                    value={form[key]}
+                    onChange={(event) => setForm((current) => ({ ...current, [key]: event.target.value }))}
+                    className="mt-2 w-full rounded-xl border border-dark/10 bg-transparent px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-dark/10 dark:border-light/10 dark:focus:ring-light/10"
+                  />
+                </label>
+              ))}
+            </div>
+            <p className="text-xs opacity-50">Measure one packed unit; checkout uses the total quantity to estimate parcel size.</p>
+          </fieldset>
 
           <div>
             <label className="mb-2 block text-xs font-semibold opacity-70">Description</label>
@@ -622,12 +617,12 @@ export default function AdminShopPage() {
               </span>
             </div>
 
-            <div className="flex flex-wrap gap-3">
+            <div className="grid grid-cols-3 gap-3 sm:grid-cols-6">
               {form.images.map((imgUrl, index) => (
                 <div
                   key={index}
                   onClick={() => !imgUrl && handleTileClick(index)}
-                  className={`relative w-24 h-24 sm:w-28 sm:h-28 rounded-xl border-2 border-dashed transition-all flex flex-col items-center justify-center cursor-pointer group overflow-hidden ${
+                  className={`relative aspect-square w-full rounded-xl border-2 border-dashed transition-all flex flex-col items-center justify-center cursor-pointer group overflow-hidden ${
                     imgUrl
                       ? "border-solid border-dark/20 dark:border-light/20 bg-zinc-100 dark:bg-zinc-800"
                       : "border-dark/15 dark:border-light/15 hover:border-dark/40 dark:hover:border-light/40 bg-dark/5 dark:bg-light/5"
@@ -699,9 +694,6 @@ export default function AdminShopPage() {
                         title={product.title}
                         compact
                       />
-                      <span className="absolute top-2 right-2 px-2 py-0.5 rounded-md bg-dark/10 dark:bg-light/10 text-[10px] font-mono font-bold">
-                        {product.is_pod !== false ? `Qikink: ${product.qikink_sku || "SKU needed"}` : "Normal"}
-                      </span>
                       <span className={`absolute top-2 left-2 rounded-md px-2 py-0.5 text-[10px] font-bold ${product.is_in_stock === false ? "bg-red-500/90 text-white" : "bg-green-600/90 text-white"}`}>
                         {product.is_in_stock === false ? "Out of stock" : "In stock"}
                       </span>
@@ -721,7 +713,7 @@ export default function AdminShopPage() {
                   </div>
 
                   {/* Actions */}
-                  <div className="grid grid-cols-2 gap-2 pt-2 border-t border-dark/10 dark:border-light/10">
+                  <div className="grid grid-cols-1 gap-2 border-t border-dark/10 pt-3 dark:border-light/10 sm:grid-cols-3">
                     <button
                       type="button"
                       onClick={() => handleEditClick(product)}
@@ -826,8 +818,10 @@ export default function AdminShopPage() {
           imageSrc={cropState.src}
           onCancel={() => setCropState({ slotIndex: null, src: null })}
           onSave={handleSaveCroppedImage}
+          onError={(message) => alert(message, "Could not save image")}
         />
       )}
+      {dialog}
     </main>
   );
 }

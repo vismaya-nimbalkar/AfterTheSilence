@@ -47,11 +47,20 @@ function getProductPayload(body, { partial = false } = {}) {
     description: typeof body.description === "string" ? body.description.trim() : "",
     price,
     images: Array.isArray(body.images) ? body.images.filter((image) => typeof image === "string" && image) : [],
-    qikink_sku: typeof body.qikink_sku === "string" ? body.qikink_sku.trim() : null,
   };
-  const isPod = body.is_pod !== undefined ? Boolean(body.is_pod) : true;
-  payload.is_pod = isPod;
-  if (!isPod) payload.qikink_sku = null;
+  const packageDetails = [
+    ["shipping_weight_kg", "Weight (kg)"],
+    ["shipping_length_cm", "Length (cm)"],
+    ["shipping_width_cm", "Width (cm)"],
+    ["shipping_height_cm", "Height (cm)"],
+  ];
+  for (const [key] of packageDetails) {
+    const value = Number(body[key]);
+    if (body[key] === "" || body[key] === null || !Number.isFinite(value) || value <= 0) {
+      return { error: "Enter a positive weight and all three package dimensions for shipping." };
+    }
+    payload[key] = value;
+  }
 
   if (body.is_in_stock !== undefined) payload.is_in_stock = Boolean(body.is_in_stock);
   else if (!partial) payload.is_in_stock = true;
@@ -102,10 +111,6 @@ export async function POST(request) {
       return NextResponse.json({ error: validationError }, { status: 400 });
     }
 
-    if (payload.is_pod && (!payload.qikink_sku || payload.qikink_sku.length > 50)) {
-      return NextResponse.json({ error: "Enter the Qikink SKU from your My Products catalog (up to 50 characters)." }, { status: 400 });
-    }
-
     const { data: product, error: productError } = await supabaseAdmin
       .from("products")
       .insert(payload)
@@ -135,10 +140,6 @@ export async function PUT(request) {
     if (validationError) {
       return NextResponse.json({ error: validationError }, { status: 400 });
     }
-    if (payload.is_pod && (!payload.qikink_sku || payload.qikink_sku.length > 50)) {
-      return NextResponse.json({ error: "Enter the Qikink SKU from your My Products catalog (up to 50 characters)." }, { status: 400 });
-    }
-
     const { data: product, error: productError } = await supabaseAdmin
       .from("products")
       .update(payload)

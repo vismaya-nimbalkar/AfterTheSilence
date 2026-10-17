@@ -51,6 +51,9 @@ export default function CheckoutClient({ preview }) {
   const [promotionsError, setPromotionsError] = useState("");
   const [promoError, setPromoError] = useState("");
   const [promoChecking, setPromoChecking] = useState(false);
+  const [shippingQuote, setShippingQuote] = useState(null);
+  const [shippingQuoteLoading, setShippingQuoteLoading] = useState(false);
+  const [shippingQuoteError, setShippingQuoteError] = useState("");
   const [checkoutNotice, setCheckoutNotice] = useState(null);
   const phoneCountryRef = useRef(null);
   const stateDropdownRef = useRef(null);
@@ -58,8 +61,14 @@ export default function CheckoutClient({ preview }) {
   const hasUnavailableItem = cart.some(
     (item) => item.is_in_stock === false || item.is_published === false
   );
+  const hasShippableItems = cart.length > 0;
+  const shippingCartKey = cart
+    .map((item) => `${item.id}:${item.quantity}`)
+    .sort()
+    .join("|");
   const checkoutBlocked =
-    availabilityLoading || !availabilityChecked || Boolean(availabilityError) || hasUnavailableItem;
+    availabilityLoading || !availabilityChecked || Boolean(availabilityError) || hasUnavailableItem
+    || (hasShippableItems && (shippingQuoteLoading || !shippingQuote || Boolean(shippingQuoteError)));
 
   useEffect(() => {
     setPreviewMode(preview);
@@ -105,6 +114,51 @@ export default function CheckoutClient({ preview }) {
     () => countries.find((country) => country.isoCode === phoneCountryIso),
     [countries, phoneCountryIso]
   );
+
+  useEffect(() => {
+    if (!hasShippableItems) {
+      setShippingQuote({ shippingAmount: 0, courierName: null });
+      setShippingQuoteError("");
+      setShippingQuoteLoading(false);
+      return undefined;
+    }
+
+    const postcode = form.zip.trim();
+    setShippingQuote(null);
+    setShippingQuoteError("");
+    if (!/^\d{6}$/.test(postcode)) {
+      setShippingQuoteLoading(false);
+      return undefined;
+    }
+
+    const controller = new AbortController();
+    const timeout = setTimeout(async () => {
+      setShippingQuoteLoading(true);
+      try {
+        const response = await fetch("/api/checkout/shipping", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            items: cart.map((item) => ({ product_id: item.id, quantity: item.quantity })),
+            deliveryPostcode: postcode,
+          }),
+          signal: controller.signal,
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "Could not calculate shipping.");
+        setShippingQuote(data);
+      } catch (error) {
+        if (error.name !== "AbortError") setShippingQuoteError(error.message);
+      } finally {
+        if (!controller.signal.aborted) setShippingQuoteLoading(false);
+      }
+    }, 350);
+
+    return () => {
+      clearTimeout(timeout);
+      controller.abort();
+    };
+  }, [cart, form.zip, hasShippableItems, shippingCartKey]);
   const filteredPhoneCountries = useMemo(() => {
     const query = phoneCountrySearch.trim().toLowerCase();
     return countries.filter((country) =>
@@ -189,7 +243,8 @@ export default function CheckoutClient({ preview }) {
   }, [form.zip]);
 
   const fullPhoneNumber = `${phoneCountry?.phonecode || ""} ${phoneNumber}`.trim();
-  const checkoutTotal = promoApplied?.totalAmount ?? subtotal;
+  const shippingAmount = Number(shippingQuote?.shippingAmount || 0);
+  const checkoutTotal = (promoApplied?.totalAmount ?? subtotal) + shippingAmount;
 
   useEffect(() => {
     setPromoApplied(null);
@@ -257,6 +312,7 @@ export default function CheckoutClient({ preview }) {
         body: JSON.stringify({
           items: formattedItems,
           promoCode: promoApplied?.code || "",
+          shippingAmount,
           preview,
           customerEmail: form.email,
           shippingAddress: {
@@ -797,8 +853,24 @@ export default function CheckoutClient({ preview }) {
               </div>
               <div className="flex justify-between">
                 <span className="opacity-70">Shipping</span>
-                <span className="text-green-600 font-medium">Free</span>
+                <span>
+                  {shippingQuoteLoading
+                    ? "Calculating..."
+                    : shippingQuoteError
+                      ? "Unavailable"
+                      : hasShippableItems && shippingQuote
+                        ? `₹${shippingAmount.toFixed(2)}${shippingQuote.courierName ? ` · ${shippingQuote.courierName}` : ""}`
+                        : "To be Calculated"}
+                </span>
               </div>
+              {shippingQuoteError && (
+                <p role="alert" className="text-xs text-red-600 dark:text-red-400">
+                  {shippingQuoteError}
+                </p>
+              )}
+              {hasShippableItems && !shippingQuote && !shippingQuoteError && !shippingQuoteLoading && (
+                <p className="text-xs opacity-60">Enter a valid six-digit PIN code to calculate live shipping.</p>
+              )}
               {promoApplied && (
                 <div className="flex justify-between text-green-700 dark:text-green-300">
                   <span>Discount ({promoApplied.code})</span>

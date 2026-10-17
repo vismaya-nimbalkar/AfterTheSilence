@@ -5,7 +5,7 @@ import { State } from "country-state-city";
 import { createAdminClient } from "@/src/lib/supabase/admin";
 import { createClient } from "@/src/lib/supabase/server";
 import { getUserRole } from "@/src/lib/admin/permissions";
-import { recordQikinkFailure, submitQikinkOrder } from "@/src/lib/commerce/qikink";
+import { createOutboundShipment } from "@/src/lib/commerce/shiprocket";
 
 const razorpay = new Razorpay({
   key_id: process.env.RAZORPAY_KEY_ID || process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
@@ -36,8 +36,6 @@ async function isAuthorizedPreviewAdmin() {
 
 export async function POST(request) {
   const supabaseAdmin = createAdminClient();
-  let createdOrderId;
-  let createdOrderIsPod = false;
 
   try {
     const {
@@ -52,7 +50,7 @@ export async function POST(request) {
 
     const { data: checkoutSession, error: checkoutSessionError } = await supabaseAdmin
       .from("checkout_sessions")
-      .select("customer_email, shipping_address, items, subtotal_amount, discount_amount, promo_code, status, is_preview")
+      .select("customer_email, shipping_address, items, subtotal_amount, discount_amount, shipping_amount, promo_code, status, is_preview")
       .eq("razorpay_order_id", razorpayOrderId)
       .maybeSingle();
     if (checkoutSessionError) throw checkoutSessionError;
@@ -71,7 +69,7 @@ export async function POST(request) {
 
     const { data: existingOrder, error: existingOrderError } = await supabaseAdmin
       .from("orders")
-      .select("id, fulfillment_error, is_preview")
+      .select("*")
       .eq("razorpay_payment_id", razorpayPaymentId)
       .maybeSingle();
     if (existingOrderError) throw existingOrderError;
@@ -96,10 +94,59 @@ export async function POST(request) {
         .update({ status: "completed", order_id: existingOrder.id })
         .eq("razorpay_order_id", razorpayOrderId);
       if (sessionUpdateError) throw sessionUpdateError;
+      let shiprocketWarning = existingOrder.shiprocket_error;
+      const shippableItems = Array.isArray(existingOrder.items)
+        ? existingOrder.items.filter((item) => item.order_type === "normal")
+        : [];
+      if (!existingOrder.is_preview && shippableItems.length) {
+        const { data: savedShipments, error: savedShipmentsError } = await supabaseAdmin
+          .from("order_shipments")
+          .select("id")
+          .eq("order_id", existingOrder.id)
+          .eq("kind", "outbound")
+          .limit(1);
+        if (savedShipmentsError) throw savedShipmentsError;
+        if (!savedShipments?.length) {
+          try {
+            const shipment = await createOutboundShipment({
+              order: existingOrder,
+              items: shippableItems,
+              shippingAmount: existingOrder.shipping_amount,
+            });
+            const { error: shipmentSaveError } = await supabaseAdmin
+              .from("order_shipments")
+              .insert({ order_id: existingOrder.id, ...shipment });
+            if (shipmentSaveError) throw shipmentSaveError;
+            const { error: clearError } = await supabaseAdmin
+              .from("orders")
+              .update({ shiprocket_error: null })
+              .eq("id", existingOrder.id);
+            if (clearError) throw clearError;
+            shiprocketWarning = null;
+          } catch (error) {
+            shiprocketWarning = error.message;
+            const { error: saveError } = await supabaseAdmin
+              .from("orders")
+              .update({ shiprocket_error: shiprocketWarning })
+              .eq("id", existingOrder.id);
+            if (saveError) console.error("Could not save Shiprocket retry error:", saveError);
+            console.error("Shiprocket retry after duplicate payment verification failed:", error);
+          }
+        } else {
+          shiprocketWarning = null;
+          if (existingOrder.shiprocket_error) {
+            const { error: clearError } = await supabaseAdmin
+              .from("orders")
+              .update({ shiprocket_error: null })
+              .eq("id", existingOrder.id);
+            if (clearError) throw clearError;
+          }
+        }
+      }
       return NextResponse.json({
         success: true,
         orderId: existingOrder.id,
-        fulfillmentWarning: existingOrder.fulfillment_error || null,
+        fulfillmentWarning: shiprocketWarning || null,
       });
     }
 
@@ -127,10 +174,13 @@ export async function POST(request) {
     }
     const totalAmount = Number(checkoutSession.subtotal_amount);
     const discountAmount = Number(checkoutSession.discount_amount);
+    const shippingAmount = Number(checkoutSession.shipping_amount || 0);
     const itemSubtotal = orderItems.reduce((sum, item) => sum + Number(item.price) * Number(item.quantity), 0);
     if (
       !Number.isFinite(totalAmount) ||
       !Number.isFinite(discountAmount) ||
+      !Number.isFinite(shippingAmount) ||
+      shippingAmount < 0 ||
       discountAmount < 0 ||
       discountAmount > totalAmount ||
       Math.round(itemSubtotal * 100) !== Math.round(totalAmount * 100)
@@ -166,12 +216,11 @@ export async function POST(request) {
       payment.status !== "captured" ||
       payment.currency !== "INR" ||
       payment.amount !== razorpayOrder.amount ||
-      payment.amount !== Math.round((totalAmount - discountAmount) * 100)
+      payment.amount !== Math.round((totalAmount - discountAmount + shippingAmount) * 100)
     ) {
       return NextResponse.json({ error: "The captured payment does not match this order total." }, { status: 400 });
     }
 
-    const hasPodItems = orderItems.some((item) => item.order_type === "pod");
     const shippingAddress = checkoutSession.shipping_address;
     const stateCode = State.getStatesOfCountry("IN")
       .find((state) => state.name.toLowerCase() === shippingAddress.state.trim().toLowerCase())
@@ -194,12 +243,12 @@ export async function POST(request) {
         user_email: checkoutSession.customer_email,
         shipping_address: safeShippingAddress,
         items: orderItems,
-        total_amount: totalAmount - discountAmount,
+        total_amount: totalAmount - discountAmount + shippingAmount,
         subtotal_amount: totalAmount,
         discount_amount: discountAmount,
+        shipping_amount: shippingAmount,
         promo_code: redemption?.code || null,
-        status: hasPodItems ? "POD Order Submission Pending" : "Order Placed",
-        pod_provider: hasPodItems ? "qikink" : null,
+        status: "Order Placed",
         is_preview: false,
         payment_method: "razorpay",
         razorpay_order_id: razorpayOrderId,
@@ -209,8 +258,6 @@ export async function POST(request) {
       .single();
 
     if (insertError) throw insertError;
-    createdOrderId = order.id;
-    createdOrderIsPod = hasPodItems;
 
     if (redemption) {
       const { error: redemptionUpdateError } = await supabaseAdmin
@@ -228,16 +275,27 @@ export async function POST(request) {
     if (sessionUpdateError) throw sessionUpdateError;
 
     let fulfillmentWarning = null;
-    if (hasPodItems) {
+    if (orderItems.length) {
       try {
-        await submitQikinkOrder(order, supabaseAdmin);
+        const shipment = await createOutboundShipment({
+          order,
+          items: orderItems,
+          shippingAmount,
+        });
+        const { error: shipmentSaveError } = await supabaseAdmin
+          .from("order_shipments")
+          .insert({ order_id: order.id, ...shipment });
+        if (shipmentSaveError) throw shipmentSaveError;
       } catch (error) {
         fulfillmentWarning = error.message;
-        await recordQikinkFailure(order.id, fulfillmentWarning, supabaseAdmin);
-        console.error("Qikink order submission failed:", error);
+        const { error: shippingError } = await supabaseAdmin
+          .from("orders")
+          .update({ shiprocket_error: fulfillmentWarning })
+          .eq("id", order.id);
+        if (shippingError) console.error("Could not save Shiprocket fulfillment error:", shippingError);
+        console.error("Shiprocket order submission failed:", error);
       }
     }
-
     return NextResponse.json({
       success: true,
       orderId: order.id,
@@ -245,9 +303,6 @@ export async function POST(request) {
     });
   } catch (error) {
     console.error("Payment verification/order fulfillment error:", error);
-    if (createdOrderId && createdOrderIsPod) {
-      await recordQikinkFailure(createdOrderId, error.message, supabaseAdmin);
-    }
     return NextResponse.json(
       { error: error.message || "Payment verification failed." },
       { status: 500 }

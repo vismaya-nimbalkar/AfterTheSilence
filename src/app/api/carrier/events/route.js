@@ -42,13 +42,32 @@ export async function POST(request) {
       return NextResponse.json({ error: "Webhook must include a supported AWB and shipment status." }, { status: 400 });
     }
 
-    const { data: orders, error } = await createAdminClient()
+    const supabaseAdmin = createAdminClient();
+    const { data: shipments, error: shipmentError } = await supabaseAdmin
+      .from("order_shipments")
+      .update({ status })
+      .eq("awb_code", awb)
+      .select("id, order_id, kind");
+    if (shipmentError) throw shipmentError;
+    for (const shipment of shipments || []) {
+      if (shipment.kind === "outbound") {
+        const { error: orderUpdateError } = await supabaseAdmin
+          .from("orders")
+          .update({ status })
+          .eq("id", shipment.order_id);
+        if (orderUpdateError) throw orderUpdateError;
+      }
+    }
+    if (shipments?.length) {
+      return NextResponse.json({ received: true, updatedShipments: shipments.length });
+    }
+
+    const { data: orders, error } = await supabaseAdmin
       .from("orders")
       .update({ status })
       .eq("tracking_provider", "shiprocket")
       .eq("tracking_number", awb)
       .select("id");
-
     if (error) throw error;
     if (!orders?.length) {
       return NextResponse.json({ error: "No Shiprocket order matches this AWB." }, { status: 404 });

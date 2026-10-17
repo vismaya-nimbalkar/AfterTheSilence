@@ -38,6 +38,7 @@ import Placeholder from "@tiptap/extension-placeholder";
 import Image from "@tiptap/extension-image";
 
 import { createClient } from "@/src/lib/supabase/client";
+import { useConfirmDialog } from "@/src/components/Admin/ConfirmDialog";
 
 /* ============================================================
    FOOTNOTE REFERENCE
@@ -335,6 +336,7 @@ export default function RichTextEditor({
   enableAttachments = true,
   enableFootnotes = true,
 }) {
+  const { alert, dialog } = useConfirmDialog();
   const imageInputRef = useRef(null);
   const audioInputRef = useRef(null);
   const videoInputRef = useRef(null);
@@ -1321,9 +1323,7 @@ export default function RichTextEditor({
         file.type
       )
     ) {
-      window.alert(
-        `Please choose a valid ${typeName} file.`
-      );
+      alert(`Please choose a valid ${typeName} file.`, "Unsupported file type");
 
       return false;
     }
@@ -1332,12 +1332,10 @@ export default function RichTextEditor({
       file.size >
       maxSize
     ) {
-      window.alert(
-        `${typeName} files must be smaller than ${
+      alert(`${typeName} files must be smaller than ${
           maxSize /
           (1024 * 1024)
-        } MB.`
-      );
+        } MB.`, "File is too large");
 
       return false;
     }
@@ -1469,10 +1467,7 @@ export default function RichTextEditor({
           })
           .run();
       } catch (error) {
-        window.alert(
-          error.message ||
-            "Could not upload image."
-        );
+        alert(error.message || "Could not upload image.", "Image upload failed");
       }
     };
 
@@ -1581,10 +1576,7 @@ export default function RichTextEditor({
           ])
           .run();
       } catch (error) {
-        window.alert(
-          error.message ||
-            "Could not upload audio."
-        );
+        alert(error.message || "Could not upload audio.", "Audio upload failed");
       }
     };
 
@@ -1690,10 +1682,7 @@ export default function RichTextEditor({
           ])
           .run();
       } catch (error) {
-        window.alert(
-          error.message ||
-            "Could not upload video."
-        );
+        alert(error.message || "Could not upload video.", "Video upload failed");
       }
     };
 
@@ -1800,10 +1789,7 @@ export default function RichTextEditor({
           ])
           .run();
       } catch (error) {
-        window.alert(
-          error.message ||
-            "Could not upload file."
-        );
+        alert(error.message || "Could not upload file.", "File upload failed");
       }
     };
 
@@ -1834,6 +1820,7 @@ export default function RichTextEditor({
   ========================================================== */
 
   return (
+    <>
     <div className="overflow-hidden rounded-2xl border border-dark/20">
 
       {/* HIDDEN FILE INPUTS */}
@@ -2472,6 +2459,8 @@ export default function RichTextEditor({
       )}
 
     </div>
+    {dialog}
+    </>
   );
 }
 

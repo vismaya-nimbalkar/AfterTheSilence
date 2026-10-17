@@ -1,13 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import CommentReply from "./CommentReply";
 import { useConfirmDialog } from "./ConfirmDialog";
 
 export default function CommentModeration({
   comments: initialComments = [],
   canModerateAll = true,
-  role = "admin",
+  inline = false,
+  rootId,
+  onCommentsChange,
 }) {
   const [comments, setComments] = useState(initialComments);
   const [loadingId, setLoadingId] = useState(null);
@@ -15,6 +17,10 @@ export default function CommentModeration({
   const [editingId, setEditingId] = useState(null);
   const [editingText, setEditingText] = useState("");
   const { confirm, dialog } = useConfirmDialog();
+
+  useEffect(() => {
+    onCommentsChange?.(rootId, comments);
+  }, [comments, onCommentsChange, rootId]);
 
   const updateComment = async (id, action) => {
     if (!id) {
@@ -41,13 +47,13 @@ export default function CommentModeration({
         );
       }
 
-      setComments((current) =>
-        current.map((comment) =>
+      setComments((current) => {
+        return current.map((comment) =>
           String(comment.id) === String(id)
             ? { ...comment, status: result.status }
             : comment
-        )
-      );
+        );
+      });
     } catch (error) {
       console.error("Comment moderation error:", error);
       setActionError(error?.message || "Could not update the comment.");
@@ -86,9 +92,9 @@ export default function CommentModeration({
         );
       }
 
-      setComments((current) =>
-        current.filter((comment) => String(comment.id) !== String(id))
-      );
+      setComments((current) => {
+        return current.filter((comment) => String(comment.id) !== String(id));
+      });
     } catch (error) {
       console.error("Comment deletion error:", error);
       setActionError(error?.message || "Could not delete the comment.");
@@ -128,13 +134,13 @@ export default function CommentModeration({
         );
       }
 
-      setComments((current) =>
-        current.map((item) =>
+      setComments((current) => {
+        return current.map((item) =>
           String(item.id) === String(comment.id)
             ? { ...item, status: "rejected" }
             : item
-        )
-      );
+        );
+      });
     } catch (error) {
       console.error("Comment ban error:", error);
       setActionError(error?.message || "Could not ban the commenter.");
@@ -191,13 +197,13 @@ export default function CommentModeration({
         ? result.comment?.comment
         : result.comment;
 
-      setComments((current) =>
-        current.map((item) =>
+      setComments((current) => {
+        return current.map((item) =>
           String(item.id) === String(comment.id)
             ? { ...item, comment: updatedComment || editingText.trim() }
             : item
-        )
-      );
+        );
+      });
 
       cancelEditing();
     } catch (error) {
@@ -218,6 +224,76 @@ export default function CommentModeration({
 
   const getReplies = (commentId) =>
     comments.filter((comment) => String(comment.parent_id) === String(commentId));
+
+  if (inline) {
+    return (
+      <div className="mt-4 rounded-xl border border-accent/30 bg-accent/[0.03] p-4 dark:bg-accentDark/[0.04]">
+        {actionError && (
+          <div className="mb-4 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-700 dark:text-red-300">
+            {actionError}
+          </div>
+        )}
+        {dialog}
+        {moderatedComments.map((comment) => (
+          <div key={comment.id}>
+            <div className="flex flex-wrap items-center gap-2 text-sm">
+              <span className="font-medium">Comment controls</span>
+              <span className="rounded-full border border-dark/20 px-2 py-0.5 capitalize opacity-70">
+                {comment.status}
+              </span>
+            </div>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {canModerateAll && comment.status !== "approved" && !comment.is_admin && (
+                <button type="button" onClick={() => updateComment(comment.id, "approve")} disabled={loadingId === comment.id} className="rounded-lg bg-dark px-3 py-2 text-sm font-medium text-light disabled:opacity-50">
+                  Approve
+                </button>
+              )}
+              {canModerateAll && comment.status !== "rejected" && !comment.is_admin && (
+                <button type="button" onClick={() => updateComment(comment.id, "reject")} disabled={loadingId === comment.id} className="rounded-lg border border-dark/20 px-3 py-2 text-sm font-medium hover:bg-dark/5 disabled:opacity-50">
+                  Reject
+                </button>
+              )}
+              {canModerateAll && !comment.is_admin && (
+                <button type="button" onClick={() => banCommenter(comment)} disabled={loadingId === comment.id} className="rounded-lg border border-red-500/30 px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-500/10 disabled:opacity-50">
+                  Ban Commenter
+                </button>
+              )}
+              {canModerateAll && (
+                <button type="button" onClick={() => deleteComment(comment.id)} disabled={loadingId === comment.id} className="rounded-lg border border-red-500/30 px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-500/10 disabled:opacity-50">
+                  Delete
+                </button>
+              )}
+              {comment.status === "approved" && !comment.is_admin && (
+                <CommentReply
+                  commentId={comment.id}
+                  postSlug={comment.post_slug}
+                  onReply={addReplyToComments}
+                />
+              )}
+            </div>
+            {getReplies(comment.id).length > 0 && (
+              <div className="mt-4 space-y-4 border-l-2 border-accent pl-4">
+                {getReplies(comment.id).map((reply) => (
+                  <AdminReplyCard
+                    key={reply.id}
+                    reply={reply}
+                    loading={loadingId === reply.id}
+                    editingId={editingId}
+                    editingText={editingText}
+                    setEditingText={setEditingText}
+                    onEdit={() => startEditing(reply)}
+                    onSaveEdit={() => saveEdit(reply)}
+                    onCancelEdit={cancelEditing}
+                    onDelete={() => deleteComment(reply.id)}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-10">
@@ -268,37 +344,6 @@ export default function CommentModeration({
         )}
       </div>
 
-      {moderatedComments.length > 0 && (
-        <details>
-          <summary className="cursor-pointer text-lg font-semibold">
-            Previously Moderated ({moderatedComments.length})
-          </summary>
-
-          <div className="mt-5 space-y-4">
-            {moderatedComments.map((comment) => (
-              <CommentCard
-                key={comment.id}
-                comment={comment}
-                replies={getReplies(comment.id)}
-                canModerateAll={canModerateAll}
-                loading={loadingId === comment.id}
-                editingId={editingId}
-                editingText={editingText}
-                setEditingText={setEditingText}
-                onApprove={() => updateComment(comment.id, "approve")}
-                onReject={() => updateComment(comment.id, "reject")}
-                onBan={() => banCommenter(comment)}
-                onDelete={() => deleteComment(comment.id)}
-                onDeleteReply={deleteComment}
-                onReply={addReplyToComments}
-                onEdit={startEditing}
-                onSaveEdit={saveEdit}
-                onCancelEdit={cancelEditing}
-              />
-            ))}
-          </div>
-        </details>
-      )}
     </div>
   );
 }

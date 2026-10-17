@@ -70,6 +70,10 @@ export function CartProvider({ children }) {
             ...item,
             is_published: Boolean(product),
             is_in_stock: Boolean(product) && product.is_in_stock !== false,
+            shipping_weight_kg: product?.shipping_weight_kg,
+            shipping_length_cm: product?.shipping_length_cm,
+            shipping_width_cm: product?.shipping_width_cm,
+            shipping_height_cm: product?.shipping_height_cm,
           };
         })
       );

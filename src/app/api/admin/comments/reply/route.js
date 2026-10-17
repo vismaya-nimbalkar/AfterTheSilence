@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/src/lib/supabase/server";
 import { createAdminClient } from "@/src/lib/supabase/admin";
 import { hasEditorPermission } from "@/src/lib/admin/permissions";
+import { canManagePostComments } from "@/src/lib/admin/commentAccess";
 
 export async function POST(request) {
   try {
@@ -103,6 +104,13 @@ export async function POST(request) {
         {
           status: 404,
         }
+      );
+    }
+
+    if (!await canManagePostComments(user, parentComment.post_slug)) {
+      return NextResponse.json(
+        { error: "You do not have permission to manage comments for this post." },
+        { status: 403 }
       );
     }
 

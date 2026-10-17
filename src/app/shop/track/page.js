@@ -294,16 +294,48 @@ export default function OrderTrackingPage() {
                 </div>
 
                 {/* Shipping / Tracking Info */}
-                {order.tracking_number && (
+                {(order.shipments?.length > 0 || order.tracking_provider === "shiprocket" || (order.tracking_number && order.tracking_provider !== "manual" && order.tracking_provider !== "shiprocket")) && (
                   <div className="pt-4 border-t border-dark/10 dark:border-light/10 text-xs">
-                    <span className="opacity-60">Tracking Number: </span>
-                    {order.tracking_url ? (
-                      <a href={order.tracking_url} target="_blank" rel="noreferrer" className="font-mono font-bold underline">
-                        {order.tracking_number}
-                      </a>
-                    ) : (
-                      <span className="font-mono font-bold">{order.tracking_number}</span>
-                    )}
+                    <span className="mb-2 block font-semibold opacity-60">SHIPMENT TRACKING</span>
+                    <div className="space-y-2">
+                      {(order.shipments || []).map((shipment) => (
+                        <div key={shipment.id} className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                          <span className="capitalize">{shipment.kind} shipment:</span>
+                          {shipment.awb_code && (
+                            <a
+                              href={shipment.tracking_url || "https://www.shiprocket.in/shipment-tracking/"}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="font-mono font-bold underline"
+                            >
+                              {shipment.awb_code}
+                            </a>
+                          )}
+                          {shipment.courier_name && <span>{shipment.courier_name}</span>}
+                          <span className="opacity-60">{shipment.status}</span>
+                        </div>
+                      ))}
+                      {order.tracking_number && order.tracking_provider === "shiprocket" && !order.shipments?.length && (
+                        <div>
+                          <span className="opacity-60">Shiprocket tracking: </span>
+                          {order.tracking_url
+                            ? <a href={order.tracking_url} target="_blank" rel="noreferrer" className="font-mono font-bold underline">{order.tracking_number}</a>
+                            : <span className="font-mono font-bold">{order.tracking_number}</span>}
+                        </div>
+                      )}
+                      {order.tracking_number && order.tracking_provider !== "manual" && order.tracking_provider !== "shiprocket" && (
+                        <div>
+                          <span className="opacity-60">Carrier tracking: </span>
+                          {order.tracking_url ? (
+                            <a href={order.tracking_url} target="_blank" rel="noreferrer" className="font-mono font-bold underline">
+                              {order.tracking_number}
+                            </a>
+                          ) : (
+                            <span className="font-mono font-bold">{order.tracking_number}</span>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 )}
               </div>

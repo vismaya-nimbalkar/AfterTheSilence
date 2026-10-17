@@ -31,6 +31,16 @@ export async function GET() {
 
     const orderIds = (orders || []).map((order) => order.id);
     let refundsByOrder = new Map();
+    let shipmentsByOrder = new Map(orderIds.map((id) => [id, []]));
+    if (orderIds.length) {
+      const { data: shipments, error: shipmentsError } = await supabaseAdmin
+        .from("order_shipments")
+        .select("id, order_id, kind, shiprocket_order_id, shipment_id, awb_code, courier_name, tracking_url, status, items, created_at")
+        .in("order_id", orderIds)
+        .order("created_at", { ascending: false });
+      if (shipmentsError) throw shipmentsError;
+      for (const shipment of shipments || []) shipmentsByOrder.get(shipment.order_id)?.push(shipment);
+    }
     if (orderIds.length) {
       const { data: refunds, error: refundsError } = await supabaseAdmin
         .from("order_refunds")
@@ -76,62 +86,21 @@ export async function GET() {
 
     return NextResponse.json({
       success: true,
-      orders: (orders || []).map((order) => ({ ...order, refunds: refundsByOrder.get(order.id) || [] })),
+      orders: (orders || []).map((order) => ({
+        ...order,
+        refunds: refundsByOrder.get(order.id) || [],
+        shipments: shipmentsByOrder.get(order.id) || [],
+      })),
     });
   } catch (err) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }
 
-// PATCH: Update order status or tracking number
-export async function PATCH(req) {
-  try {
-    const { response, supabaseAdmin } = await getAuthorizedAdmin();
-    if (response) return response;
-    const { orderId, status, trackingNumber, trackingProvider } = await req.json();
-
-    if (!orderId) {
-      return NextResponse.json({ error: "Missing Order ID" }, { status: 400 });
-    }
-
-    const { data: existingOrder, error: lookupError } = await supabaseAdmin
-      .from("orders")
-      .select("id, items, pod_order_id, pod_provider, tracking_provider")
-      .eq("id", orderId)
-      .maybeSingle();
-    if (lookupError) throw lookupError;
-    if (!existingOrder) {
-      return NextResponse.json({ error: "Order not found." }, { status: 404 });
-    }
-
-    const hasPodItems = Boolean(existingOrder.pod_order_id) || (Array.isArray(existingOrder.items) &&
-      existingOrder.items.some((item) => item.order_type === "pod" || (!item.order_type && item.pod_variant_id)));
-    if (hasPodItems) {
-      return NextResponse.json({ error: "POD order status and tracking are synchronized from the fulfillment provider and cannot be edited here." }, { status: 409 });
-    }
-    if (trackingProvider && !["manual", "shiprocket"].includes(trackingProvider)) {
-      return NextResponse.json({ error: "Select a supported tracking provider." }, { status: 400 });
-    }
-
-    const selectedTrackingProvider = trackingProvider ||
-      (existingOrder.tracking_provider === "shiprocket" ? "shiprocket" : "manual");
-    const { data: order, error } = await supabaseAdmin
-      .from("orders")
-      .update({
-        ...(status ? { status } : {}),
-        tracking_number: trackingNumber?.trim() || null,
-        tracking_provider: selectedTrackingProvider,
-      })
-      .eq("id", orderId)
-      .select()
-      .single();
-
-    if (error) throw error;
-
-    return NextResponse.json({ success: true, order });
-  } catch (err) {
-    return NextResponse.json({ error: err.message }, { status: 500 });
-  }
+export async function PATCH() {
+  return NextResponse.json({
+    error: "Shipping status and tracking are synchronized from Shiprocket and cannot be edited manually.",
+  }, { status: 409 });
 }
 
 // DELETE: Permanently delete an order from Supabase
@@ -145,6 +114,12 @@ export async function DELETE(req) {
     if (!orderId) {
       return NextResponse.json({ error: "Missing Order ID" }, { status: 400 });
     }
+
+    const { error: refundsError } = await supabaseAdmin
+      .from("order_refunds")
+      .delete()
+      .eq("order_id", orderId);
+    if (refundsError) throw refundsError;
 
     const { error } = await supabaseAdmin
       .from("orders")

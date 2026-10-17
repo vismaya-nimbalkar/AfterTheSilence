@@ -9,6 +9,8 @@ import { blogs } from "@/.velite/generated";
 import Image from "next/image";
 import { notFound } from "next/navigation";
 import { createClient } from "@/src/lib/supabase/server";
+import { getUserRole } from "@/src/lib/admin/permissions";
+import { canManagePost } from "@/src/lib/admin/postAccess";
 
 export const revalidate = 0;
 export const dynamic = "force-dynamic";
@@ -175,6 +177,9 @@ export default async function BlogPage({ params }) {
   const { slug } = await params;
 
   const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
   /*
    * ============================================================
@@ -190,6 +195,11 @@ export default async function BlogPage({ params }) {
     .maybeSingle();
 
   if (supabasePost) {
+    const canManageComments = Boolean(
+      user &&
+      (getUserRole(user) === "admin" ||
+        await canManagePost(user, supabasePost.id))
+    );
     const tags = Array.isArray(supabasePost.tags)
       ? supabasePost.tags
       : [];
@@ -509,6 +519,7 @@ export default async function BlogPage({ params }) {
             {/* Comments */}
             <Comments
               slug={supabasePost.slug}
+              canManageComments={canManageComments}
             />
 
           </div>
@@ -747,6 +758,7 @@ export default async function BlogPage({ params }) {
           {/* Comments */}
           <Comments
             slug={blog.slug}
+            canManageComments={Boolean(user && getUserRole(user) === "admin")}
           />
 
         </div>

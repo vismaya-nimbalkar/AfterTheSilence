@@ -140,9 +140,7 @@ export default function LoginPage() {
         );
 
       if (error) {
-        setError(
-          "Incorrect email or password."
-        );
+        setError("Incorrect email or password.");
 
         setLoading(false);
         return;

@@ -3,8 +3,6 @@ import Link from "next/link";
 import { createClient } from "@/src/lib/supabase/server";
 import DeletePostButton from "@/src/components/Admin/DeletePostButton";
 import LogoutButton from "@/src/components/Admin/LogoutButton";
-import CommentModeration from "@/src/components/Admin/CommentModeration";
-import BannedIPs from "@/src/components/Admin/BannedIPs";
 import {
   canManageStaffAccounts,
   getUserRole,
@@ -109,38 +107,6 @@ export default async function AdminPage() {
     postsError = result.error;
   }
 
-  // ============================================================
-  // GET COMMENTS
-  // ============================================================
-
-  let comments = [];
-  let commentsError = null;
-  if (canManagePosts) {
-    let commentsQuery = supabase
-      .from("comments")
-      .select("*")
-      .order("created_at", {
-        ascending: false,
-      });
-
-    if (!isAdmin) {
-      const ownPosts = posts.map((post) => post.slug).filter(Boolean);
-
-      if (ownPosts.length === 0) {
-        commentsQuery = commentsQuery.in("post_slug", ["__no_posts__"]);
-      } else {
-        commentsQuery = commentsQuery.in("post_slug", ownPosts);
-      }
-    }
-
-    const result = await commentsQuery;
-    comments = result.data || [];
-    commentsError = result.error;
-  }
-
-  const pendingComments =
-    comments?.filter((comment) => comment.status === "pending") || [];
-
   const publishedPosts = (posts || []).filter((post) => post.is_published);
   const draftPosts = (posts || [])
     .filter((post) => !post.is_published)
@@ -186,7 +152,16 @@ export default async function AdminPage() {
                 href="/admin/editors"
                 className="rounded-lg border border-dark px-5 py-3 text-center font-medium transition-opacity hover:opacity-70 whitespace-nowrap"
               >
-                Editors & Admins
+                Accounts
+              </Link>
+            )}
+
+            {canManagePosts && (
+              <Link
+                href="/admin/comments"
+                className="rounded-lg border border-dark px-5 py-3 text-center font-medium transition-opacity hover:opacity-70 whitespace-nowrap"
+              >
+                Comments
               </Link>
             )}
 
@@ -248,40 +223,6 @@ export default async function AdminPage() {
             <LogoutButton />
           </div>
         </div>
-
-        {/* COMMENTS / MODERATION */}
-        {canManagePosts && <section className="mt-16">
-          <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-            <div>
-              <h2 className="text-2xl font-semibold">Comments</h2>
-              <p className="mt-1 text-sm opacity-60">
-                Review comments before they appear publicly.
-              </p>
-            </div>
-
-            <div className="w-fit rounded-full border border-dark/20 px-4 py-2 text-sm font-medium">
-              {pendingComments.length}{" "}
-              {pendingComments.length === 1 ? "comment" : "comments"} pending
-            </div>
-          </div>
-
-          {commentsError && (
-            <div className="rounded-2xl border border-red-500/30 p-6 text-red-600">
-              <p className="font-medium">Could not load comments.</p>
-              <p className="mt-2 text-sm opacity-80">{commentsError.message}</p>
-            </div>
-          )}
-
-          {!commentsError && (
-            <CommentModeration
-              comments={comments || []}
-              canModerateAll
-              role={role}
-            />
-          )}
-        </section>}
-
-        {isAdmin && <BannedIPs />}
 
         {/* POSTS */}
         {canManagePosts && <section className="mt-20">

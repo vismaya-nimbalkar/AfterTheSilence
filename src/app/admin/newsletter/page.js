@@ -301,7 +301,11 @@ export default function NewsletterPage() {
               Newsletter
             </label>
 
-            <RichTextEditor value={content} onChange={setContent} />
+            <RichTextEditor
+              value={content}
+              onChange={setContent}
+              enableFootnotes={false}
+            />
           </div>
 
           {/* Buttons */}

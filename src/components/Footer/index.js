@@ -71,26 +71,42 @@ const Footer = async () => {
 
       {/* Very Bottom: Social Icons + Copyright */}
       <div className="w-full mt-10 relative font-medium border-t border-solid border-light/20 dark:border-dark/20 py-6 px-8 flex flex-col md:flex-row items-center justify-between gap-y-4">
-        
-        {/* Social Icons moved here */}
-        {socialLinks.length > 0 ? (
-          <div className="flex items-center gap-5">
-            {socialLinks.map(({ name, url, icon: Icon }) => (
-              <a
-                key={name}
-                href={url}
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-label={name}
-                className="opacity-80 transition-opacity hover:opacity-100 text-xl"
-              >
-                <Icon />
-              </a>
-            ))}
-          </div>
-        ) : (
-          <div /> /* Empty div keeps copyright right-aligned on desktop if no socials exist */
-        )}
+        <div className="flex items-center gap-5">
+          {socialLinks.map(({ name, url, icon: Icon }) => (
+            <a
+              key={name}
+              href={url}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label={name}
+              className="opacity-80 transition-opacity hover:opacity-100 text-xl"
+            >
+              <Icon />
+            </a>
+          ))}
+          <a
+            href="/feed.xml"
+            aria-label="RSS Feed"
+            title="RSS Feed"
+            className="flex flex-none items-center justify-center opacity-80 transition-opacity hover:opacity-100"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              className="h-5 w-5"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <rect x="2.5" y="2.5" width="19" height="19" rx="4" />
+              <circle cx="7" cy="17" r="1" fill="currentColor" stroke="none" />
+              <path d="M7 12a5 5 0 0 1 5 5" />
+              <path d="M7 7a10 10 0 0 1 10 10" />
+            </svg>
+          </a>
+        </div>
 
         {/* Copyright Text */}
         <span className="text-center text-sm opacity-80">

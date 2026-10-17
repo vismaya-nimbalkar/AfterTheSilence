@@ -8,6 +8,8 @@ import { getUserRole } from "@/src/lib/admin/permissions";
 import LogoutButton from "@/src/components/Admin/LogoutButton";
 import { useConfirmDialog } from "@/src/components/Admin/ConfirmDialog";
 import BackLink from "@/src/components/BackLink";
+import PasswordRequirements from "@/src/components/Auth/PasswordRequirements";
+import { getPasswordPolicyError } from "@/src/lib/auth/passwordPolicy";
 
 export default function AdminSecurityPage() {
   const router = useRouter();
@@ -22,6 +24,7 @@ export default function AdminSecurityPage() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [forcedSecuritySetup, setForcedSecuritySetup] = useState(false);
   const [passwordChanged, setPasswordChanged] = useState(true);
+  const [recentPasswordLogin, setRecentPasswordLogin] = useState(false);
   const [error, setError] = useState("");
   const { confirm, dialog } = useConfirmDialog();
 
@@ -128,6 +131,13 @@ export default function AdminSecurityPage() {
         }
 
         setAuthorized(true);
+        const lastSignInAt = user.last_sign_in_at
+          ? new Date(user.last_sign_in_at).getTime()
+          : 0;
+        setRecentPasswordLogin(
+          Number.isFinite(lastSignInAt) &&
+            Date.now() - lastSignInAt < 24 * 60 * 60 * 1000
+        );
         const userIsAdmin = getUserRole(user) === "admin";
         const forcedSetup =
           !userIsAdmin && user.user_metadata?.security_reset_required === true;
@@ -235,10 +245,9 @@ export default function AdminSecurityPage() {
       return;
     }
 
-    if (newPassword.length < 8) {
-      setError(
-        "Your new password must be at least 8 characters long."
-      );
+    const passwordPolicyError = getPasswordPolicyError(newPassword);
+    if (passwordPolicyError) {
+      setError(passwordPolicyError);
       return;
     }
 
@@ -246,6 +255,11 @@ export default function AdminSecurityPage() {
       setError(
         "The passwords do not match."
       );
+      return;
+    }
+
+    if (!recentPasswordLogin) {
+      setError("Please sign out and sign back in before changing your password. Supabase requires a recent sign-in.");
       return;
     }
 
@@ -1059,7 +1073,7 @@ export default function AdminSecurityPage() {
                   )
                 }
                 autoComplete="new-password"
-                minLength={8}
+                minLength={15}
                 required
                 className="
                   w-full
@@ -1076,8 +1090,17 @@ export default function AdminSecurityPage() {
               />
 
               <p className="mt-2 text-xs opacity-50">
-                Must be at least 8 characters.
+                Your new password must meet every requirement below.
               </p>
+              <PasswordRequirements
+                password={newPassword}
+                recentLogin={recentPasswordLogin}
+              />
+              {!recentPasswordLogin && (
+                <p className="mt-2 text-sm text-red-600 dark:text-red-400">
+                  Supabase requires a sign-in within the last 24 hours to change your password. Sign out and sign back in, then try again.
+                </p>
+              )}
 
             </div>
 
@@ -1107,7 +1130,7 @@ export default function AdminSecurityPage() {
                   )
                 }
                 autoComplete="new-password"
-                minLength={8}
+                minLength={15}
                 required
                 className="
                   w-full
@@ -1132,7 +1155,8 @@ export default function AdminSecurityPage() {
               disabled={
                 passwordLoading ||
                 !newPassword ||
-                !confirmPassword
+                !confirmPassword ||
+                !recentPasswordLogin
               }
               className="
                 w-full

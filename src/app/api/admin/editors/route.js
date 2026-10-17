@@ -7,6 +7,7 @@ import {
   getEditorPermissions,
   getUserRole,
 } from "@/src/lib/admin/permissions";
+import { getPasswordPolicyError } from "@/src/lib/auth/passwordPolicy";
 
 async function requireAccountManager() {
   const supabase = await createClient();
@@ -86,9 +87,9 @@ export async function POST(request) {
     }
 
     const body = await request.json();
-    const email = body.email?.trim();
+    const email = typeof body.email === "string" ? body.email.trim() : "";
     const password = body.password;
-    const name = body.name?.trim() || email;
+    const name = (typeof body.name === "string" ? body.name.trim() : "") || email;
     const accountType = body.accountType || "editor";
     if (!["editor", "admin"].includes(accountType)) {
       return NextResponse.json({ error: "Choose either an editor or administrator account." }, { status: 400 });
@@ -102,16 +103,17 @@ export async function POST(request) {
       ])
     );
 
-    if (!email || !password) {
+    if (!email || typeof password !== "string" || !password) {
       return NextResponse.json(
         { error: "Please enter both email and password." },
         { status: 400 }
       );
     }
 
-    if (password.length < 8) {
+    const passwordPolicyError = getPasswordPolicyError(password);
+    if (passwordPolicyError) {
       return NextResponse.json(
-        { error: "Password must be at least 8 characters long." },
+        { error: passwordPolicyError },
         { status: 400 }
       );
     }
@@ -225,6 +227,78 @@ export async function PATCH(request) {
         { error: authUserError.message || "Could not load editor account." },
         { status: 500 }
       );
+    }
+
+    if (body.profile !== undefined) {
+      if (!body.profile || typeof body.profile !== "object" || Array.isArray(body.profile)) {
+        return NextResponse.json({ error: "Account details must be an object." }, { status: 400 });
+      }
+
+      const name = typeof body.profile.name === "string" ? body.profile.name.trim() : "";
+      const email = typeof body.profile.email === "string" ? body.profile.email.trim() : "";
+      if (!name) {
+        return NextResponse.json({ error: "Name is required." }, { status: 400 });
+      }
+      if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        return NextResponse.json({ error: "Enter a valid email address." }, { status: 400 });
+      }
+
+      const originalUser = authUser?.user;
+      if (!originalUser) {
+        return NextResponse.json({ error: "Could not load editor account." }, { status: 500 });
+      }
+
+      const { data: updatedAuthUser, error: authUpdateError } =
+        await supabaseAdmin.auth.admin.updateUserById(editor.user_id, {
+          email,
+          email_confirm: true,
+          user_metadata: {
+            ...(originalUser.user_metadata || {}),
+            display_name: name,
+          },
+        });
+
+      if (authUpdateError) {
+        return NextResponse.json(
+          { error: authUpdateError.message || "Could not update account details." },
+          { status: 400 }
+        );
+      }
+
+      const updatedEmail = updatedAuthUser?.user?.email || email;
+      const { data: updatedEditor, error: accountUpdateError } = await supabaseAdmin
+        .from("editor_accounts")
+        .update({ email: updatedEmail, name })
+        .eq("id", id)
+        .select("id, email, name")
+        .single();
+
+      if (accountUpdateError) {
+        const { error: rollbackError } = await supabaseAdmin.auth.admin.updateUserById(
+          editor.user_id,
+          {
+            email: originalUser.email,
+            email_confirm: true,
+            user_metadata: originalUser.user_metadata || {},
+          }
+        );
+        if (rollbackError) {
+          console.error("Could not roll back account profile update:", rollbackError);
+          return NextResponse.json(
+            {
+              error: `The account record could not be updated, and the Auth changes could not be rolled back: ${accountUpdateError.message}`,
+            },
+            { status: 500 }
+          );
+        }
+
+        return NextResponse.json(
+          { error: accountUpdateError.message || "Could not update account details." },
+          { status: 500 }
+        );
+      }
+
+      return NextResponse.json({ editor: updatedEditor });
     }
 
     const accountType = getUserRole(authUser?.user);

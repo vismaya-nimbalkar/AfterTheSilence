@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { createClient } from "@/src/lib/supabase/client";
 import PrivacyNotice from "@/src/components/PrivacyNotice";
+import CommentModeration from "@/src/components/Admin/CommentModeration";
 
-export default function Comments({ slug }) {
+export default function Comments({ slug, canManageComments = false }) {
   const [comments, setComments] = useState([]);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -12,9 +13,26 @@ export default function Comments({ slug }) {
 
   const [loading, setLoading] = useState(false);
   const [loadingComments, setLoadingComments] = useState(true);
+  const [commentsLoadError, setCommentsLoadError] = useState("");
 
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+
+  const handleModeratedThreadChange = useCallback((rootId, updatedThread) => {
+    const updatedRoot = updatedThread.find((updated) => updated.id === rootId);
+    setComments((current) => [
+      ...current.filter(
+        (existing) => existing.id !== rootId && existing.parent_id !== rootId
+      ),
+      ...(updatedRoot?.status === "approved"
+        ? updatedThread.filter((updated) => updated.status === "approved")
+        : []),
+    ].sort(
+      (first, second) =>
+        new Date(first.created_at).getTime() -
+        new Date(second.created_at).getTime()
+    ));
+  }, []);
 
   // ============================================================
   // LOAD APPROVED COMMENTS
@@ -24,33 +42,41 @@ export default function Comments({ slug }) {
     if (!slug) return;
 
     const loadComments = async () => {
-      const supabase = createClient();
+      try {
+        if (canManageComments) {
+          const response = await fetch(
+            `/api/admin/comments?slug=${encodeURIComponent(slug)}`,
+            { cache: "no-store" }
+          );
+          const result = await response.json();
+          if (!response.ok) {
+            throw new Error(result.error || "Could not load comments.");
+          }
+          setComments(result.comments || []);
+        } else {
+          const supabase = createClient();
+          const { data, error } = await supabase
+            .from("comments")
+            .select("id, name, comment, created_at, parent_id, is_admin")
+            .eq("post_slug", slug)
+            .eq("status", "approved")
+            .order("created_at", { ascending: true });
 
-      const { data, error } = await supabase
-        .from("comments")
-        .select(
-          "id, name, comment, created_at, parent_id, is_admin"
-        )
-        .eq("post_slug", slug)
-        .eq("status", "approved")
-        .order("created_at", {
-          ascending: true,
-        });
-
-      if (error) {
-        console.error(
-          "Could not load comments:",
-          error
-        );
-      } else {
-        setComments(data || []);
+          if (error) {
+            throw error;
+          }
+          setComments(data || []);
+        }
+      } catch (error) {
+        console.error("Could not load comments:", error);
+        setCommentsLoadError(error?.message || "Could not load comments.");
+      } finally {
+        setLoadingComments(false);
       }
-
-      setLoadingComments(false);
     };
 
     loadComments();
-  }, [slug]);
+  }, [slug, canManageComments]);
 
   // ============================================================
   // SUBMIT COMMENT
@@ -274,7 +300,15 @@ export default function Comments({ slug }) {
                           REPLIES / THREAD
                       =================================================== */}
 
-                      {replies.length > 0 && (
+                      {canManageComments ? (
+                        <CommentModeration
+                          comments={[item, ...replies]}
+                          canModerateAll
+                          inline
+                          rootId={item.id}
+                          onCommentsChange={handleModeratedThreadChange}
+                        />
+                      ) : replies.length > 0 && (
 
                         <div
                           className="
@@ -400,6 +434,14 @@ export default function Comments({ slug }) {
         ======================================================= */}
 
         {!loadingComments &&
+          commentsLoadError && (
+            <p className="mb-8 rounded-xl border border-red-500/30 p-4 text-sm text-red-600">
+              {commentsLoadError}
+            </p>
+          )}
+
+        {!loadingComments &&
+          !commentsLoadError &&
           comments.length === 0 && (
 
             <p className="mb-10 text-sm opacity-50">
@@ -572,7 +614,6 @@ export default function Comments({ slug }) {
               </p>
 
             </div>
-
 
             {/* ==================================================
                 SUCCESS

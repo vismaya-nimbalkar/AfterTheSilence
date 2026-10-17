@@ -6,7 +6,7 @@ import { createClient } from "@/src/lib/supabase/server";
 import { getUserRole } from "@/src/lib/admin/permissions";
 import { getShopEnabled } from "@/src/lib/siteSettings";
 import { calculatePromoDiscount, findAvailablePromo } from "@/src/lib/commerce/promotions";
-import { isQikinkReadyForCheckout } from "@/src/lib/commerce/qikink";
+import { getCheapestCourier, getPackageDetails } from "@/src/lib/commerce/shiprocket";
 
 const razorpay = new Razorpay({
   key_id: process.env.RAZORPAY_KEY_ID || process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
@@ -15,7 +15,14 @@ const razorpay = new Razorpay({
 
 export async function POST(req) {
   try {
-    const { items, customerEmail, shippingAddress, promoCode, preview = false } = await req.json();
+    const {
+      items,
+      customerEmail,
+      shippingAddress,
+      promoCode,
+      preview = false,
+      shippingAmount: quotedShippingAmount,
+    } = await req.json();
 
     if (preview) {
       const sessionClient = await createClient();
@@ -51,7 +58,7 @@ export async function POST(req) {
 
     const { data: products, error: productsError } = await supabaseAdmin
       .from("products")
-      .select("id, title, price, images, is_published, is_in_stock, is_pod, qikink_sku")
+      .select("id, title, price, images, is_published, is_in_stock, shipping_weight_kg, shipping_length_cm, shipping_width_cm, shipping_height_cm")
       .in("id", [...quantities.keys()]);
     if (productsError) throw productsError;
 
@@ -61,13 +68,6 @@ export async function POST(req) {
     if (products.some((product) => product.is_in_stock === false)) {
       return NextResponse.json({ error: "An item in your cart is out of stock. Remove it from your cart to continue." }, { status: 400 });
     }
-    if (products.some((product) => product.is_pod !== false && !product.qikink_sku)) {
-      return NextResponse.json({ error: "A print-on-demand product is not connected to Qikink yet. Please contact the shop owner." }, { status: 409 });
-    }
-    if (products.some((product) => product.is_pod !== false) && !isQikinkReadyForCheckout()) {
-      return NextResponse.json({ error: "Print-on-demand checkout is temporarily unavailable while Qikink is being configured." }, { status: 503 });
-    }
-
     const totalAmount = products.reduce(
       (acc, product) => acc + Number(product.price) * quantities.get(product.id),
       0
@@ -77,10 +77,31 @@ export async function POST(req) {
       title: product.title,
       price: Number(product.price),
       quantity: quantities.get(product.id),
-      order_type: product.is_pod === false ? "normal" : "pod",
-      ...(product.is_pod !== false ? { qikink_sku: product.qikink_sku } : {}),
+      order_type: "normal",
+      shipping_weight_kg: Number(product.shipping_weight_kg),
+      shipping_length_cm: Number(product.shipping_length_cm),
+      shipping_width_cm: Number(product.shipping_width_cm),
+      shipping_height_cm: Number(product.shipping_height_cm),
       image_url: product.images?.[0] || "",
     }));
+
+    const packageDetails = getPackageDetails(orderItems);
+    let shippingAmount = 0;
+    if (packageDetails) {
+      const courier = await getCheapestCourier({
+        deliveryPostcode: shippingAddress.zip,
+        packageDetails,
+        declaredValue: orderItems.reduce((sum, item) => sum + item.price * item.quantity, 0),
+      });
+      shippingAmount = Number(courier.quotedRate.toFixed(2));
+      if (!Number.isFinite(Number(quotedShippingAmount)) || Math.abs(Number(quotedShippingAmount) - shippingAmount) > 0.01) {
+        return NextResponse.json({
+          error: "The Shiprocket shipping rate has changed. Refresh the quote before continuing.",
+        }, { status: 409 });
+      }
+    } else if (Number(quotedShippingAmount || 0) !== 0) {
+      return NextResponse.json({ error: "The shipping amount is invalid. Refresh checkout and try again." }, { status: 400 });
+    }
 
     let discountAmount = 0;
     let normalizedPromoCode = null;
@@ -113,7 +134,7 @@ export async function POST(req) {
       }
     }
 
-    const payableAmount = Math.max(0, totalAmount - discountAmount);
+    const payableAmount = Math.max(0, totalAmount - discountAmount + shippingAmount);
     const amountInPaise = Math.round(payableAmount * 100);
 
     if (amountInPaise < 100) {
@@ -193,6 +214,7 @@ export async function POST(req) {
         items: orderItems,
         subtotal_amount: totalAmount,
         discount_amount: discountAmount,
+        shipping_amount: shippingAmount,
         promo_code: normalizedPromoCode,
         is_preview: Boolean(preview),
       });

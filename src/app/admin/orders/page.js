@@ -1,107 +1,26 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
-import Link from "next/link";
+import { useEffect, useState } from "react";
 import BackLink from "@/src/components/BackLink";
+import ShiprocketReturnForm from "@/src/components/Admin/ShiprocketReturnForm";
+import { useConfirmDialog } from "@/src/components/Admin/ConfirmDialog";
 
 const ORDER_FILTER_STATUSES = [
   "Payment Pending",
   "Order Placed",
   "In Production",
-  "POD Order Submission Pending",
-  "POD Order Created",
-  "POD Submission Failed",
-  "POD Setup Required",
   "Shipped",
   "Out for Delivery",
   "Delivered",
   "Delivery Exception",
   "Cancelled",
 ];
-
-const EDITABLE_ORDER_STATUSES = [
-  "Payment Pending",
-  "Order Placed",
-  "Shipped",
-  "Out for Delivery",
-  "Delivered",
-  "Delivery Exception",
-  "Cancelled",
-];
-
-function CustomStatusSelect({ currentStatus, onSelect, disabled }) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef(null);
-
-  useEffect(() => {
-    function handleClickOutside(event) {
-      if (ref.current && !ref.current.contains(event.target)) {
-        setOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
-  return (
-    <div className="relative inline-block text-left" ref={ref}>
-      <button
-        type="button"
-        disabled={disabled}
-        onClick={() => setOpen(!open)}
-        className="flex items-center gap-3 px-4 py-2.5 rounded-xl border border-dark/20 dark:border-light/20 bg-white dark:bg-zinc-900 text-xs font-semibold hover:bg-dark/5 dark:hover:bg-light/5 transition-colors shadow-sm disabled:opacity-50 min-w-[180px] justify-between"
-      >
-        <span>{currentStatus || "Order Placed"}</span>
-        <svg
-          className={`w-3.5 h-3.5 opacity-60 transition-transform ${
-            open ? "rotate-180" : ""
-          }`}
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-          strokeWidth={2}
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            d="M19 9l-7 7-7-7"
-          />
-        </svg>
-      </button>
-
-      {open && (
-        <div className="absolute left-0 z-50 mt-2 w-56 rounded-2xl border border-dark/10 dark:border-light/10 bg-white dark:bg-zinc-900 p-2 shadow-2xl ring-1 ring-black/5 animate-in fade-in zoom-in-95 duration-150">
-          <div className="space-y-1">
-            {EDITABLE_ORDER_STATUSES.map((st) => {
-              const isSelected = st === currentStatus;
-              return (
-                <button
-                  key={st}
-                  type="button"
-                  onClick={() => {
-                    onSelect(st);
-                    setOpen(false);
-                  }}
-                  className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-medium text-left transition-colors ${
-                    isSelected
-                      ? "bg-dark text-light dark:bg-light dark:text-dark font-bold"
-                      : "hover:bg-dark/5 dark:hover:bg-light/5 text-dark/80 dark:text-light/80"
-                  }`}
-                >
-                  <span>{st}</span>
-                  {isSelected && <span className="text-xs font-bold">✓</span>}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
 
 export default function AdminOrdersPage() {
+  const { confirm, alert, dialog } = useConfirmDialog();
   const [orders, setOrders] = useState([]);
+  const [products, setProducts] = useState([]);
+  const [productsError, setProductsError] = useState("");
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [filter, setFilter] = useState("All");
@@ -111,6 +30,7 @@ export default function AdminOrdersPage() {
 
   // Custom Delete Modal State
   const [deleteTargetId, setDeleteTargetId] = useState(null);
+  const [shiprocketAction, setShiprocketAction] = useState(null);
 
   const fetchOrders = (showLoading = true) => {
     if (showLoading) setLoading(true);
@@ -142,59 +62,33 @@ export default function AdminOrdersPage() {
 
   useEffect(() => {
     fetchOrders();
+    fetch("/api/admin/products", { cache: "no-store" })
+      .then(async (response) => {
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "Could not load replacement products.");
+        setProducts(data.products || []);
+      })
+      .catch((error) => setProductsError(error.message));
     const interval = setInterval(() => fetchOrders(false), 30_000);
     return () => clearInterval(interval);
   }, []);
 
-  const handleUpdateStatus = async (orderId, newStatus, trackingNum, trackingProvider) => {
+  const handleShiprocketAction = async (orderId, action, payload = {}) => {
     setUpdatingId(orderId);
     try {
-      const res = await fetch("/api/admin/orders", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          orderId,
-          status: newStatus,
-          trackingNumber: trackingNum,
-          trackingProvider,
-        }),
-      });
-      const data = await res.json();
-      if (!data.success) throw new Error(data.error || "Update failed");
-
-      setOrders((prev) =>
-        prev.map((o) =>
-          o.id === orderId
-            ? {
-                ...o,
-                status: newStatus,
-                tracking_number: trackingNum,
-                tracking_provider: trackingProvider || o.tracking_provider || "manual",
-              }
-            : o
-        )
-      );
-    } catch (err) {
-      alert(`Update Error: ${err.message}`);
-    } finally {
-      setUpdatingId(null);
-    }
-  };
-
-  const handleQikinkAction = async (orderId, action = "submit") => {
-    setUpdatingId(orderId);
-    try {
-      const res = await fetch("/api/admin/orders/fulfill", {
+      const res = await fetch("/api/admin/orders/shiprocket", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ orderId, action }),
+        body: JSON.stringify({ orderId, action, ...payload }),
       });
       const data = await res.json();
-      if (!res.ok || !data.success) throw new Error(data.error || "Qikink request failed.");
-      setOrders((previous) => previous.map((order) => order.id === orderId ? data.order : order));
+      if (!res.ok || !data.success) throw new Error(data.error || "Shiprocket request failed.");
+      if (data.warning) await alert(`Shiprocket warning: ${data.warning}`, "Shiprocket update");
+      setShiprocketAction(null);
+      await fetchOrders(false);
     } catch (error) {
-      alert(`Qikink Error: ${error.message}`);
-      fetchOrders();
+      await alert(`Shiprocket error: ${error.message}`, "Shiprocket request failed");
+      await fetchOrders(false);
     } finally {
       setUpdatingId(null);
     }
@@ -216,7 +110,7 @@ export default function AdminOrdersPage() {
       setRefundAmount("");
       fetchOrders(false);
     } catch (error) {
-      alert(`Refund Error: ${error.message}`);
+      await alert(`Refund error: ${error.message}`, "Refund could not be processed");
       fetchOrders(false);
     } finally {
       setUpdatingId(null);
@@ -240,7 +134,7 @@ export default function AdminOrdersPage() {
 
       setOrders((prev) => prev.filter((o) => o.id !== orderId));
     } catch (err) {
-      alert(`Delete Error: ${err.message}`);
+      await alert(`Delete error: ${err.message}`, "Could not delete order");
     } finally {
       setUpdatingId(null);
     }
@@ -257,9 +151,7 @@ export default function AdminOrdersPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Order Management</h1>
-          <p className="text-sm opacity-60 mt-1">
-            View, track, update status, and manage shop fulfillment.
-          </p>
+          <p className="text-sm opacity-60 mt-1">View Shiprocket tracking, manage returns, and handle shop fulfillment.</p>
         </div>
       </div>
 
@@ -295,8 +187,13 @@ export default function AdminOrdersPage() {
       ) : (
         <div className="space-y-6">
           {filteredOrders.map((order) => {
-            const isPodOrder = Boolean(order.pod_order_id) || (Array.isArray(order.items) &&
-              order.items.some((item) => item.order_type === "pod" || (!item.order_type && item.pod_variant_id)));
+            const hasShippableItems = Array.isArray(order.items) && order.items.some((item) =>
+              Number(item.shipping_weight_kg) > 0
+                && Number(item.shipping_length_cm) > 0
+                && Number(item.shipping_width_cm) > 0
+                && Number(item.shipping_height_cm) > 0
+            );
+            const hasOutboundShipment = (order.shipments || []).some((shipment) => shipment.kind === "outbound");
             return (
             <div
               key={order.id}
@@ -326,6 +223,9 @@ export default function AdminOrdersPage() {
                 <div>
                   <span className="text-xs font-mono opacity-50 block">TOTAL</span>
                   <span className="text-sm font-bold">₹{order.total_amount}</span>
+                  {Number(order.shipping_amount) > 0 && (
+                    <span className="block text-[10px] opacity-60">Includes ₹{Number(order.shipping_amount).toFixed(2)} shipping</span>
+                  )}
                   {Number(order.discount_amount) > 0 && (
                     <span className="block text-[10px] opacity-60">₹{order.subtotal_amount} less ₹{order.discount_amount} ({order.promo_code})</span>
                   )}
@@ -355,11 +255,6 @@ export default function AdminOrdersPage() {
                       </div>
                     ))}
                   </div>
-                  {isPodOrder && (
-                    <p className="mt-3 text-[11px] text-amber-700 dark:text-amber-300">
-                      Refunds only return payment; they do not cancel POD production or shipping. Contact the provider separately.
-                    </p>
-                  )}
                 </div>
               )}
 
@@ -397,119 +292,98 @@ export default function AdminOrdersPage() {
                 </div>
               </div>
 
-              {isPodOrder && order.fulfillment_error && (
-                <div role="alert" className="rounded-xl border border-red-500/30 bg-red-500/5 p-4 text-xs text-red-700 dark:text-red-300">
-                  <p className="font-semibold">{order.pod_provider === "qikink" ? "Qikink needs attention:" : "Legacy POD fulfillment needs attention:"} {order.fulfillment_error}</p>
-                  {order.pod_provider === "qikink" && (
-                    <button
-                      type="button"
-                      disabled={updatingId === order.id}
-                      onClick={() => handleQikinkAction(order.id)}
-                      className="mt-3 rounded-lg border border-current px-3 py-2 font-semibold disabled:opacity-50"
-                    >
-                      {updatingId === order.id ? "Submitting..." : "Retry Qikink submission"}
-                    </button>
-                  )}
-                </div>
-              )}
-
               {/* Status Controls & Action Buttons */}
               <div className="pt-4 border-t border-dark/10 dark:border-light/10 flex flex-wrap items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
                   <span className="text-xs font-semibold opacity-70">Status:</span>
-                  {isPodOrder ? (
-                    <span className="text-xs font-semibold">{order.status || (order.pod_provider === "qikink" ? "Waiting for Qikink" : "Legacy POD order")}</span>
-                  ) : (
-                    <CustomStatusSelect
-                      currentStatus={order.status || "Order Placed"}
-                      disabled={updatingId === order.id}
-                      onSelect={(st) =>
-                        handleUpdateStatus(
-                          order.id,
-                          st,
-                          order.tracking_number || ""
-                        )
-                      }
-                    />
-                  )}
+                  <span className="text-xs font-semibold">{order.status || "Order Placed"}</span>
                 </div>
 
                 <div className="flex flex-wrap items-center gap-3">
-                  {isPodOrder ? (
-                    order.tracking_number ? (
-                      order.tracking_url ? <a
-                        href={order.tracking_url}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-xs font-mono underline"
-                      >
-                        {order.pod_provider === "qikink" ? "Qikink tracking" : "Legacy provider tracking"}: {order.tracking_number}
-                      </a> : <span className="text-xs font-mono">{order.pod_provider === "qikink" ? "Qikink tracking" : "Legacy provider tracking"}: {order.tracking_number}</span>
-                    ) : (
-                      <span className="text-xs opacity-60">Tracking will appear after the provider ships the order.</span>
-                    )
-                  ) : (
-                    <>
-                      <select
-                        aria-label="Tracking provider"
-                        value={order.tracking_provider === "shiprocket" ? "shiprocket" : "manual"}
-                        disabled={updatingId === order.id}
-                        onChange={(e) => handleUpdateStatus(
-                          order.id,
-                          order.status,
-                          order.tracking_number || "",
-                          e.target.value
-                        )}
-                        className="px-3.5 py-2.5 rounded-xl border border-dark/10 dark:border-light/10 bg-transparent text-xs focus:outline-none"
-                      >
-                        <option value="manual">Manual tracking</option>
-                        <option value="shiprocket">Shiprocket (automatic updates)</option>
-                      </select>
-                      <input
-                        type="text"
-                        placeholder="Tracking / AWB number..."
-                        defaultValue={order.tracking_number || ""}
-                        onBlur={(e) => {
-                          if (e.target.value !== (order.tracking_number || "")) {
-                            handleUpdateStatus(
-                              order.id,
-                              order.status,
-                              e.target.value,
-                              order.tracking_provider === "shiprocket" ? "shiprocket" : "manual"
-                            );
-                          }
-                        }}
-                        className="px-3.5 py-2.5 rounded-xl border border-dark/10 dark:border-light/10 bg-transparent text-xs focus:outline-none min-w-[160px]"
-                      />
-                    </>
+                  {(order.shipments || []).map((shipment) => (
+                    <div key={shipment.id} className="rounded-lg border border-dark/10 px-3 py-2 text-xs dark:border-light/10">
+                      <span className="font-semibold capitalize">{shipment.kind} shipment</span>
+                      {shipment.courier_name && <span className="ml-2 opacity-60">{shipment.courier_name}</span>}
+                      {shipment.awb_code && (
+                        <a
+                          href={shipment.tracking_url || "https://www.shiprocket.in/shipment-tracking/"}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="ml-2 font-mono underline"
+                        >
+                          {shipment.awb_code}
+                        </a>
+                      )}
+                      <span className="ml-2 opacity-60">{shipment.status}</span>
+                    </div>
+                  ))}
+                  {order.tracking_provider === "shiprocket" && order.tracking_number && !hasOutboundShipment && (
+                    order.tracking_url
+                      ? <a href={order.tracking_url} target="_blank" rel="noreferrer" className="text-xs font-mono underline">
+                        Shiprocket tracking: {order.tracking_number}
+                      </a>
+                      : <span className="text-xs font-mono">Shiprocket tracking: {order.tracking_number}</span>
+                  )}
+                  {order.tracking_number && order.tracking_provider !== "shiprocket" && order.tracking_provider !== "manual" && (
+                    order.tracking_url
+                      ? <a href={order.tracking_url} target="_blank" rel="noreferrer" className="text-xs font-mono underline">
+                        Carrier tracking: {order.tracking_number}
+                      </a>
+                      : <span className="text-xs font-mono">Carrier tracking: {order.tracking_number}</span>
+                  )}
+                  {hasShippableItems && !hasOutboundShipment && order.shiprocket_error && (
+                    <span role="alert" className="text-xs text-red-600 dark:text-red-400">{order.shiprocket_error}</span>
                   )}
 
-                  {isPodOrder && order.pod_provider === "qikink" && order.qikink_order_number && (
+                  {hasShippableItems && !hasOutboundShipment && (
                     <button
                       type="button"
                       disabled={updatingId === order.id}
-                      onClick={() => handleQikinkAction(order.id, "sync")}
-                      className="rounded-xl border border-dark/10 px-3.5 py-2.5 text-xs font-semibold hover:bg-dark/5 disabled:opacity-50 dark:border-light/10 dark:hover:bg-light/5"
+                      onClick={() => handleShiprocketAction(order.id, "retry")}
+                      className="rounded-xl border border-dark/10 px-3.5 py-2.5 text-xs font-semibold disabled:opacity-50 dark:border-light/10"
                     >
-                      {updatingId === order.id ? "Refreshing..." : "Refresh Qikink status"}
+                      Retry Shiprocket booking
                     </button>
                   )}
 
-                  {!isPodOrder && order.status !== "Cancelled" && (
+                  {hasShippableItems && order.status !== "Cancelled" && (
                     <button
                       type="button"
                       disabled={updatingId === order.id}
-                      onClick={() =>
-                        handleUpdateStatus(
-                          order.id,
-                          "Cancelled",
-                          order.tracking_number || ""
-                        )
-                      }
+                      onClick={async () => {
+                        if (await confirm({
+                          title: "Cancel Shiprocket order?",
+                          message: "Shiprocket may reject cancellation after carrier pickup. For parcels already in transit, initiate a return pickup instead.",
+                          confirmLabel: "Cancel shipment",
+                        })) {
+                          handleShiprocketAction(order.id, "cancel");
+                        }
+                      }}
                       className="px-4 py-2.5 rounded-xl bg-orange-500/10 text-orange-600 dark:text-orange-400 text-xs font-semibold hover:bg-orange-500/20 transition-colors disabled:opacity-50 whitespace-nowrap"
                     >
-                      Cancel Order
+                      Cancel Shiprocket order
                     </button>
+                  )}
+
+                  {hasShippableItems && (
+                    <>
+                      <button
+                        type="button"
+                        disabled={updatingId === order.id}
+                        onClick={() => setShiprocketAction({ orderId: order.id, action: "return" })}
+                        className="rounded-xl border border-dark/10 px-3.5 py-2.5 text-xs font-semibold disabled:opacity-50 dark:border-light/10"
+                      >
+                        Initiate return
+                      </button>
+                      <button
+                        type="button"
+                        disabled={updatingId === order.id}
+                        onClick={() => setShiprocketAction({ orderId: order.id, action: "exchange" })}
+                        className="rounded-xl border border-dark/10 px-3.5 py-2.5 text-xs font-semibold disabled:opacity-50 dark:border-light/10"
+                      >
+                        Initiate exchange
+                      </button>
+                    </>
                   )}
 
                   {order.razorpay_payment_id && !order.is_preview && order.refund_status !== "full" && (
@@ -542,6 +416,17 @@ export default function AdminOrdersPage() {
                     Delete Order
                   </button>
                 </div>
+                {shiprocketAction?.orderId === order.id && (
+                  <ShiprocketReturnForm
+                    order={order}
+                    action={shiprocketAction.action}
+                    products={products}
+                    productsError={productsError}
+                    disabled={updatingId === order.id}
+                    onCancel={() => setShiprocketAction(null)}
+                    onSubmit={(payload) => handleShiprocketAction(order.id, shiprocketAction.action, payload)}
+                  />
+                )}
               </div>
             </div>
             );
@@ -571,7 +456,7 @@ export default function AdminOrdersPage() {
               />
             </label>
             <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-800 dark:text-amber-200">
-              This sends a real refund request to Razorpay. It cannot be undone. For POD orders, this does not stop production or cancel the provider order.
+              This sends a real refund request to Razorpay. It cannot be undone and does not cancel carrier pickup or shipment.
             </p>
             <div className="grid grid-cols-2 gap-3">
               <button type="button" disabled={updatingId === refundTarget.id} onClick={() => setRefundTarget(null)} className="w-full rounded-lg border border-dark/20 px-3 py-2.5 text-sm">Cancel</button>
@@ -620,6 +505,7 @@ export default function AdminOrdersPage() {
           </div>
         </div>
       )}
+      {dialog}
     </main>
   );
 }

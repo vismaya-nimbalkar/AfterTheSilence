@@ -7,7 +7,7 @@ import { useConfirmDialog } from "./ConfirmDialog";
 export default function DeletePostButton({ postId }) {
   const router = useRouter();
   const [deleting, setDeleting] = useState(false);
-  const { confirm, dialog } = useConfirmDialog();
+  const { confirm, alert, dialog } = useConfirmDialog();
 
   const handleDelete = async () => {
     const confirmed = await confirm({
@@ -27,7 +27,7 @@ export default function DeletePostButton({ postId }) {
 
     if (!response.ok) {
       console.error(result.error);
-      alert(result.error || "Could not delete the post.");
+      await alert(result.error || "Could not delete the post.", "Could not delete post");
       setDeleting(false);
       return;
     }

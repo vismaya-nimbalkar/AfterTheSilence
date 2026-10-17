@@ -39,7 +39,29 @@ export async function GET(req) {
       );
     }
 
-    return NextResponse.json({ success: true, orders: orders || [] });
+    const orderIds = (orders || []).map((order) => order.id);
+    let shipmentsByOrder = new Map(orderIds.map((id) => [id, []]));
+    if (orderIds.length) {
+      const { data: shipments, error: shipmentsError } = await supabase
+        .from("order_shipments")
+        .select("id, order_id, kind, awb_code, courier_name, tracking_url, status, created_at")
+        .in("order_id", orderIds)
+        .order("created_at", { ascending: false });
+      if (shipmentsError) throw shipmentsError;
+      for (const shipment of shipments || []) shipmentsByOrder.get(shipment.order_id)?.push(shipment);
+    }
+
+    return NextResponse.json({
+      success: true,
+      orders: (orders || []).map((order) => {
+        const publicOrder = { ...order };
+        delete publicOrder.shiprocket_error;
+        return {
+          ...publicOrder,
+          shipments: shipmentsByOrder.get(order.id) || [],
+        };
+      }),
+    });
   } catch (err) {
     return NextResponse.json(
       { success: false, error: err.message || "Internal server error" },

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/src/lib/supabase/server";
 import { createAdminClient } from "@/src/lib/supabase/admin";
 import { hasEditorPermission } from "@/src/lib/admin/permissions";
+import { canManagePostComments } from "@/src/lib/admin/commentAccess";
 
 // ============================================================
 // PATCH COMMENT
@@ -69,6 +70,26 @@ export async function PATCH(request, { params }) {
 
     const supabaseAdmin =
       createAdminClient();
+
+    const { data: targetComment, error: targetLookupError } = await supabaseAdmin
+      .from("comments")
+      .select("post_slug")
+      .eq("id", id)
+      .maybeSingle();
+
+    if (targetLookupError) {
+      console.error("Could not verify comment post access:", targetLookupError);
+      return NextResponse.json({ error: "Could not verify comment access." }, { status: 500 });
+    }
+    if (!targetComment) {
+      return NextResponse.json({ error: "Comment not found." }, { status: 404 });
+    }
+    if (!await canManagePostComments(user, targetComment.post_slug)) {
+      return NextResponse.json(
+        { error: "You do not have permission to manage comments for this post." },
+        { status: 403 }
+      );
+    }
 
     // ==========================================================
     // APPROVE / REJECT
@@ -162,7 +183,7 @@ export async function PATCH(request, { params }) {
       } = await supabaseAdmin
         .from("comments")
         .select(
-          "id, is_admin, parent_id"
+          "id, is_admin, parent_id, post_slug"
         )
         .eq("id", id)
         .maybeSingle();
@@ -194,6 +215,13 @@ export async function PATCH(request, { params }) {
           {
             status: 404,
           }
+        );
+      }
+
+      if (!await canManagePostComments(user, existingComment.post_slug)) {
+        return NextResponse.json(
+          { error: "You do not have permission to manage comments for this post." },
+          { status: 403 }
         );
       }
 
@@ -367,7 +395,7 @@ export async function DELETE(
     } = await supabaseAdmin
       .from("comments")
       .select(
-        "id, is_admin, parent_id"
+        "id, is_admin, parent_id, post_slug"
       )
       .eq("id", id)
       .maybeSingle();
@@ -402,15 +430,26 @@ export async function DELETE(
       );
     }
 
-    if (!existingComment.is_admin || !existingComment.parent_id) {
+    if (!await canManagePostComments(user, existingComment.post_slug)) {
       return NextResponse.json(
-        {
-          error: "Only official threaded replies can be deleted.",
-        },
-        {
-          status: 403,
-        }
+        { error: "You do not have permission to manage comments for this post." },
+        { status: 403 }
       );
+    }
+
+    if (!existingComment.parent_id) {
+      const { error: repliesError } = await supabaseAdmin
+        .from("comments")
+        .delete()
+        .eq("parent_id", id);
+
+      if (repliesError) {
+        console.error("Could not delete replies before deleting parent comment:", repliesError);
+        return NextResponse.json(
+          { error: "Could not delete the comment replies." },
+          { status: 500 }
+        );
+      }
     }
 
     // ==========================================================

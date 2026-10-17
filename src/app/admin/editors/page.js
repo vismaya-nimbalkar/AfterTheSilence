@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Eye, EyeOff } from "lucide-react";
 import { createClient } from "@/src/lib/supabase/client";
 import {
   canManageStaffAccounts,
@@ -9,6 +10,11 @@ import {
 } from "@/src/lib/admin/permissions";
 import { useConfirmDialog } from "@/src/components/Admin/ConfirmDialog";
 import BackLink from "@/src/components/BackLink";
+import PasswordRequirements from "@/src/components/Auth/PasswordRequirements";
+import {
+  generateCompliantPassword,
+  getPasswordPolicyError,
+} from "@/src/lib/auth/passwordPolicy";
 
 const permissionOptions = [
   { key: "posts", label: "Posts", description: "Create and manage assigned blog posts." },
@@ -31,11 +37,14 @@ export default function EditorsPage() {
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [name, setName] = useState("");
   const [accountType, setAccountType] = useState("editor");
   const [newPermissions, setNewPermissions] = useState({ ...EDITOR_PERMISSION_DEFAULTS });
   const [permissionDrafts, setPermissionDrafts] = useState({});
   const [savingPermissionsId, setSavingPermissionsId] = useState(null);
+  const [editingProfile, setEditingProfile] = useState(null);
+  const [savingProfileId, setSavingProfileId] = useState(null);
 
   const [editors, setEditors] = useState([]);
   const createAccountPanelRef = useRef(null);
@@ -164,13 +173,14 @@ export default function EditorsPage() {
     setError("");
     setMessage("");
 
-    if (!email.trim() || !password.trim()) {
+    if (!email.trim() || !password) {
       setError("Please enter both email and password.");
       return;
     }
 
-    if (password.length < 8) {
-      setError("Password must be at least 8 characters long.");
+    const passwordPolicyError = getPasswordPolicyError(password);
+    if (passwordPolicyError) {
+      setError(passwordPolicyError);
       return;
     }
 
@@ -199,6 +209,7 @@ export default function EditorsPage() {
       setMessage(`${accountType === "admin" ? "Administrator" : "Editor"} account created successfully.`);
       setEmail("");
       setPassword("");
+      setShowPassword(false);
       setName("");
       setAccountType("editor");
       setNewPermissions({ ...EDITOR_PERMISSION_DEFAULTS });
@@ -224,6 +235,55 @@ export default function EditorsPage() {
         [permission]: enabled,
       },
     }));
+  };
+
+  const handleGeneratePassword = () => {
+    try {
+      setPassword(generateCompliantPassword());
+      setShowPassword(true);
+      setError("");
+    } catch (generationError) {
+      console.error("Could not generate a secure password:", generationError);
+      setError(generationError?.message || "Could not generate a secure password.");
+    }
+  };
+
+  const handleSaveProfile = async (event, editor) => {
+    event.preventDefault();
+    const name = editingProfile?.name.trim();
+    const email = editingProfile?.email.trim();
+    if (!name || !email) {
+      setError("Please enter both a name and email address.");
+      return;
+    }
+
+    setSavingProfileId(editor.id);
+    setError("");
+    setMessage("");
+
+    try {
+      const response = await fetch("/api/admin/editors", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: editor.id,
+          profile: { name, email },
+        }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Could not update account details.");
+
+      setEditors((current) => current.map((item) =>
+        item.id === editor.id ? { ...item, ...result.editor } : item
+      ));
+      setEditingProfile(null);
+      setMessage(`Name and email updated for ${result.editor.email}.`);
+    } catch (err) {
+      console.error(err);
+      setError(err?.message || "Could not update account details.");
+    } finally {
+      setSavingProfileId(null);
+    }
   };
 
   const handleSavePermissions = async (editor) => {
@@ -404,7 +464,7 @@ export default function EditorsPage() {
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="editor@example.com"
+                  placeholder="account@example.com"
                   className="w-full rounded-lg border border-dark/20 bg-transparent px-4 py-3 outline-none"
                 />
               </div>
@@ -456,14 +516,38 @@ export default function EditorsPage() {
               </div>
 
               <div>
-                <label className="mb-2 block text-sm font-medium">Password</label>
-                <input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Minimum 8 characters"
-                  className="w-full rounded-lg border border-dark/20 bg-transparent px-4 py-3 outline-none"
-                />
+                <div className="mb-2 flex items-center justify-between gap-3">
+                  <label className="block text-sm font-medium">Password</label>
+                  <button
+                    type="button"
+                    onClick={handleGeneratePassword}
+                    className="text-sm font-medium underline underline-offset-4"
+                  >
+                    Generate password
+                  </button>
+                </div>
+                <div className="relative">
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    autoComplete="new-password"
+                    minLength={15}
+                    required
+                    placeholder="At least 15 characters"
+                    className="w-full rounded-lg border border-dark/20 bg-transparent px-4 py-3 pr-12 outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((visible) => !visible)}
+                    aria-label={showPassword ? "Hide password" : "Show password"}
+                    title={showPassword ? "Hide password" : "Show password"}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md p-2 opacity-60 hover:opacity-100"
+                  >
+                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                </div>
+                <PasswordRequirements password={password} />
               </div>
 
               {accountType === "editor" && <fieldset className="space-y-3">
@@ -513,8 +597,74 @@ export default function EditorsPage() {
                   <div key={editor.id} className="rounded-xl border border-dark/20 p-4">
                     <div className="flex flex-col gap-4">
                       <div>
-                        <p className="font-medium">{editor.name || editor.email}</p>
-                        <p className="mt-1 text-sm opacity-60">{editor.email}</p>
+                        {editingProfile?.id === editor.id ? (
+                          <form onSubmit={(event) => handleSaveProfile(event, editor)} className="space-y-3">
+                            <div>
+                              <label htmlFor={`account-name-${editor.id}`} className="mb-1 block text-sm font-medium">
+                                Name
+                              </label>
+                              <input
+                                id={`account-name-${editor.id}`}
+                                value={editingProfile.name}
+                                onChange={(event) => setEditingProfile((current) => ({
+                                  ...current,
+                                  name: event.target.value,
+                                }))}
+                                required
+                                className="w-full rounded-lg border border-dark/20 bg-transparent px-3 py-2 outline-none"
+                              />
+                            </div>
+                            <div>
+                              <label htmlFor={`account-email-${editor.id}`} className="mb-1 block text-sm font-medium">
+                                Email
+                              </label>
+                              <input
+                                id={`account-email-${editor.id}`}
+                                type="email"
+                                value={editingProfile.email}
+                                onChange={(event) => setEditingProfile((current) => ({
+                                  ...current,
+                                  email: event.target.value,
+                                }))}
+                                required
+                                className="w-full rounded-lg border border-dark/20 bg-transparent px-3 py-2 outline-none"
+                              />
+                            </div>
+                            <div className="flex gap-2">
+                              <button
+                                type="submit"
+                                disabled={savingProfileId === editor.id}
+                                className="rounded-lg bg-dark px-4 py-2 text-sm font-medium text-light disabled:opacity-50"
+                              >
+                                {savingProfileId === editor.id ? "Saving..." : "Save details"}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setEditingProfile(null)}
+                                disabled={savingProfileId === editor.id}
+                                className="rounded-lg border border-dark/20 px-4 py-2 text-sm font-medium disabled:opacity-50"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </form>
+                        ) : (
+                          <>
+                            <p className="font-medium">{editor.name || editor.email}</p>
+                            <p className="mt-1 text-sm opacity-60">{editor.email}</p>
+                            <button
+                              type="button"
+                              onClick={() => setEditingProfile({
+                                id: editor.id,
+                                name: editor.name || "",
+                                email: editor.email || "",
+                              })}
+                              className="mt-2 text-sm font-medium underline underline-offset-4"
+                            >
+                              Edit name and email
+                            </button>
+                          </>
+                        )}
                         <p className="mt-1 text-xs font-medium">
                           {editor.accountType === "admin" ? "Administrator" : "Editor"}
                         </p>

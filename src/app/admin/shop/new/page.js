@@ -4,8 +4,10 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/src/lib/supabase/client";
 import BackLink from "@/src/components/BackLink";
+import { useConfirmDialog } from "@/src/components/Admin/ConfirmDialog";
 
 export default function NewProductPage() {
+  const { alert, dialog } = useConfirmDialog();
   const router = useRouter();
   const supabase = createClient();
 
@@ -19,8 +21,10 @@ export default function NewProductPage() {
     slug: "",
     description: "",
     price: "",
-    is_pod: true,
-    qikink_sku: "",
+    shipping_weight_kg: "",
+    shipping_length_cm: "",
+    shipping_width_cm: "",
+    shipping_height_cm: "",
   });
 
   // Automatically generate URL slug from product title
@@ -58,7 +62,7 @@ export default function NewProductPage() {
 
       setImages((prev) => [...prev, data.publicUrl]);
     } catch (err) {
-      alert(`Image upload failed: ${err.message}`);
+      await alert(`Image upload failed: ${err.message}`, "Image upload failed");
       setSelectedFileName("no file selected");
     } finally {
       setUploadingImage(false);
@@ -72,7 +76,7 @@ export default function NewProductPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (images.length === 0) {
-      alert("Please upload at least one product image.");
+      await alert("Upload at least one product image before publishing.", "Product image required");
       return;
     }
 
@@ -86,8 +90,10 @@ export default function NewProductPage() {
           slug: form.slug,
           description: form.description,
           price: parseFloat(form.price),
-          is_pod: form.is_pod,
-          qikink_sku: form.qikink_sku,
+          shipping_weight_kg: form.shipping_weight_kg,
+          shipping_length_cm: form.shipping_length_cm,
+          shipping_width_cm: form.shipping_width_cm,
+          shipping_height_cm: form.shipping_height_cm,
           images,
         }),
       });
@@ -99,7 +105,7 @@ export default function NewProductPage() {
         throw new Error(data.error || "Failed to save product.");
       }
     } catch (err) {
-      alert(`Error saving product: ${err.message}`);
+      await alert(`Error saving product: ${err.message}`, "Could not save product");
     } finally {
       setSubmitting(false);
     }
@@ -115,7 +121,7 @@ export default function NewProductPage() {
         {/* Title */}
         <h1 className="text-3xl font-bold mb-2">Create New Product</h1>
         <p className="text-sm opacity-60 mb-8">
-          Add a product and, for POD items, link it to a product in Qikink My Products.
+          Add a product with its packed dimensions for live shipping quotes.
         </p>
 
         {/* Form Container */}
@@ -135,31 +141,6 @@ export default function NewProductPage() {
                   onChange={handleTitleChange}
                 />
               </div>
-
-              <fieldset className="space-y-3">
-                <legend className="block text-xs font-medium opacity-70 mb-2">Order fulfillment</legend>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {[
-                    { value: true, title: "Print-on-demand (POD)", detail: "Qikink produces and ships paid orders." },
-                    { value: false, title: "Normal order", detail: "Fulfil the order yourself and update its status/tracking." },
-                  ].map((option) => (
-                    <label
-                      key={String(option.value)}
-                      className={`cursor-pointer rounded-xl border p-4 ${form.is_pod === option.value ? "border-dark dark:border-light" : "border-dark/10 dark:border-light/10"}`}
-                    >
-                      <input
-                        type="radio"
-                        name="is_pod"
-                        checked={form.is_pod === option.value}
-                        onChange={() => setForm((current) => ({ ...current, is_pod: option.value }))}
-                        className="mr-2"
-                      />
-                      <span className="text-sm font-semibold">{option.title}</span>
-                      <span className="mt-1 block pl-6 text-xs opacity-60">{option.detail}</span>
-                    </label>
-                  ))}
-                </div>
-              </fieldset>
 
               <div>
                 <label className="block text-xs font-medium opacity-70 mb-2">
@@ -208,24 +189,34 @@ export default function NewProductPage() {
                 />
               </div>
 
-              {form.is_pod && (
-                <div>
-                  <div>
-                    <label className="block text-xs font-medium opacity-70 mb-2">Qikink My Products SKU *</label>
-                    <input
-                      type="text"
-                      required
-                      maxLength={50}
-                      placeholder="SKU from your Qikink My Products catalog"
-                      className="w-full px-4 py-3 rounded-xl border border-dark/10 dark:border-light/10 bg-transparent text-sm focus:outline-none focus:ring-1 focus:ring-dark dark:focus:ring-light"
-                      value={form.qikink_sku}
-                      onChange={(e) => setForm({ ...form, qikink_sku: e.target.value })}
-                    />
-                  </div>
-                  <p className="mt-2 text-xs opacity-50">Create the product and artwork in Qikink My Products first, then enter its exact SKU here.</p>
-                </div>
-              )}
             </div>
+
+            <fieldset className="space-y-3">
+              <legend className="block text-xs font-medium opacity-70">Packed product dimensions for Shiprocket</legend>
+              <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+                {[
+                  ["shipping_weight_kg", "Weight (kg)", "0.5"],
+                  ["shipping_length_cm", "Length (cm)", "20"],
+                  ["shipping_width_cm", "Width (cm)", "15"],
+                  ["shipping_height_cm", "Height (cm)", "5"],
+                ].map(([key, label, placeholder]) => (
+                  <label key={key} className="text-xs opacity-70">
+                    {label}
+                    <input
+                      type="number"
+                      required
+                      min="0.01"
+                      step="0.01"
+                      placeholder={placeholder}
+                      value={form[key]}
+                      onChange={(event) => setForm((current) => ({ ...current, [key]: event.target.value }))}
+                      className="mt-2 w-full rounded-xl border border-dark/10 bg-transparent px-3 py-3 text-sm dark:border-light/10"
+                    />
+                  </label>
+                ))}
+              </div>
+              <p className="text-xs opacity-50">Measure one packed unit. The checkout quote and shipment use these dimensions.</p>
+            </fieldset>
 
             {/* Custom Image Upload Box */}
             <div>
@@ -291,6 +282,7 @@ export default function NewProductPage() {
           </form>
         </div>
       </div>
+      {dialog}
     </main>
   );
 }
